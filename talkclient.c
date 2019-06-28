@@ -9,7 +9,7 @@
 #include <pthread.h>
 
 int maxSize = 4000;
-int sockfd, portno, n;
+int sockfd, portno;
 struct sockaddr_in serv_addr;
 struct hostent *server;
 
@@ -20,15 +20,23 @@ void error(const char *msg) {
 
 void writeServer(char *msg) {
 	//printf("Wrote: %s\n", msg);
-	if( write(sockfd, msg, strlen(msg)) < 0) {
+	int n = 0;
+	if((n = (write(sockfd, msg, strlen(msg)))) < 0) {
 		printf("ERROR while writing message: %s\n", msg);
 		close(sockfd);
 		pthread_cancel(pthread_self());
+		exit(0);
+	} else if(n == 0) {
+		printf("Connection lost (Server shutdown or force disconnect");
+		close(sockfd);
+		pthread_cancel(pthread_self());
+		exit(0);
 	}
 }
 
 void *readServer() {
 	char buffer[maxSize];
+	bzero(buffer, sizeof(buffer));
 	char current[1];
 	int n = 0;
 	while(1) {
@@ -38,14 +46,15 @@ void *readServer() {
 				printf("ERROR while receiving message\n");
 				close(sockfd);
 				pthread_cancel(pthread_self());
+				exit(0);
 			} else if (n == 0) {
-				printf("SERVER CLOSED while reading message\n");
+				printf("Connection lost (Server shutdown or force disconnect)\n");
 				close(sockfd);
 				pthread_cancel(pthread_self());
+				exit(0);
 			} else {
 				if(current[0] == '\n' || i == maxSize-1) {
 					printf("%s\n", buffer);
-					fflush(stdout);
 					break;
 				} else {
 					buffer[i] = current[0];
@@ -63,7 +72,6 @@ void *getInput() {
 
 	char buffer[maxSize+2];
 	while(1) {
-		printf("");
 		fgets(buffer, maxSize, stdin);
 		buffer[strlen(buffer)+1] = '\n';
 		buffer[strlen(buffer)+2] = '\0';
