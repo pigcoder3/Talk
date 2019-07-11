@@ -10,6 +10,7 @@
 #include <sys/ioctl.h> //Window sizes
 #include <ncurses.h> //ncurses
 #include <math.h>
+#include <signal.h>
 
 #define maxSize 4000
 int sockfd, portno;
@@ -76,7 +77,9 @@ void redrawScreen() {
 	clear();
 
 	getmaxyx(stdscr, maxY, maxX);
-	
+
+	resizeterm(maxY, maxX);
+
 	//Draw messages
 	int p=maxY-2;
 	for(int i=bottomMessagePosition; i>0; i--) {
@@ -90,13 +93,20 @@ void redrawScreen() {
 	//Draw Title
 	mvprintw(0, maxX/2 - strlen("TALK")/2, "TALK"); //centered
 	for(int i=0; i<maxX; i++) mvprintw(1, i, "-"); //Separator
-
 	
 	//Draw serparator
 	for(int i=0; i<maxX; i++) mvprintw(maxY-2, i, "-"); //Separator
 
 	//Below is the input area
-	mvprintw(maxY-1, 0, input);
+	p=0;
+	for(int i=0; i<strlen(input); i++) {
+		if(p>=maxX) break;
+		if(i == 0 && strlen(input) > maxX) {
+			i=strlen(input) - maxX;
+		}
+		mvprintw(maxY-1, p, "%c", input[i]);
+		p++;
+	}
 
 	refresh();
 
@@ -162,12 +172,13 @@ void *getInput() {
 	while(1) {
 		while(strlen(input) < sizeof(input)-2) {
 			char c = getch();
-			if (c == 127 || c == 8) {
+			if (c == 26) { continue; }
+			else if (c == 127 || c == 8) {
 				if(strlen(input) > 0) {
 					input[strlen(input)-1] = 0;
 					redrawScreen();
-					continue;
 				}	
+				continue;
 			}
 			input[strlen(input)] = c;
 			redrawScreen();
