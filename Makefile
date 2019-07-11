@@ -1,4 +1,4 @@
-CLIENTFLAGS= -o client -lncurses -pthread
+CLIENTFLAGS= -o client -lncurses -pthread -lm
 SERVERFLAGS= -o server
 
 all: talkclient.c talkserver.c
