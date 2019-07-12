@@ -261,14 +261,16 @@ void *getInput() {
 						break;	
 					case 107: //k
 						if(viewMessagePosition-1 > 0) { //Up
-							viewMessagePosition--;
-							if(viewMessagePosition <= bottomMessagePosition-maxY+4) { bottomMessagePosition--; }
+							int size = 1 + floor(strlen(previousMessages[viewMessagePosition])/maxX);
+							viewMessagePosition-=size;
+							if(viewMessagePosition <= bottomMessagePosition-maxY+4) { bottomMessagePosition-=size; }
 						}
 						break;
 					case 106: //j
 						if(viewMessagePosition+1 < totalMessages) { //Down
-							viewMessagePosition++;
-							if(viewMessagePosition == bottomMessagePosition) { bottomMessagePosition++; }
+							int size = 1 + floor(strlen(previousMessages[viewMessagePosition])/maxX);
+							viewMessagePosition+=size;
+							if(viewMessagePosition == bottomMessagePosition) { bottomMessagePosition+=size; }
 						}
 						break;	
 				}
