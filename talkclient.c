@@ -26,10 +26,19 @@ char input[maxSize+2] = {0};
 char *previousMessages[totalStoredMessages];
 int totalMessages = 0;
 
+int viewMessagePosition = 1;
 int bottomMessagePosition = 0;
 
 int titleRows = 2;
 int inputRows = 2;
+
+int inputCursorPos = 0;
+int backCharacterPos = 0;
+
+//press escape to switch modes
+int currentMode = 0;
+//0: input
+//1: view
 
 void closeApp() {
 
@@ -78,7 +87,7 @@ void redrawScreen() {
 
 	getmaxyx(stdscr, maxY, maxX);
 
-	resizeterm(maxY, maxX);
+	//resizeterm(maxY, maxX);
 
 	//Draw messages
 	int p=maxY-2;
@@ -86,7 +95,13 @@ void redrawScreen() {
 		if(p <= 2) { break; }
 		if(previousMessages[i] != NULL) {
 			p = p - 1 - floor(strlen(previousMessages[i])/maxX);
-			mvprintw(p, 0, "%s\n", previousMessages[i]);
+			if(viewMessagePosition == i) {
+				attron(COLOR_PAIR(1));
+				mvprintw(p, 0, "%s\n", previousMessages[i]);
+				attroff(COLOR_PAIR(1));
+			} else {
+				mvprintw(p, 0, "%s\n", previousMessages[i]);
+			}
 		}
 	}
 
@@ -94,13 +109,20 @@ void redrawScreen() {
 	mvprintw(0, maxX/2 - strlen("TALK")/2, "TALK"); //centered
 	for(int i=0; i<maxX; i++) mvprintw(1, i, "-"); //Separator
 	
+	//Current mode
+	if(currentMode == 0) {
+		mvprintw(maxY-1, maxX - strlen("INSERT"), "INSERT");
+	} else if(currentMode == 1) {
+		mvprintw(maxY-1, maxX - strlen("VIEW"), "VIEW");
+	}
+
 	//Draw serparator
 	for(int i=0; i<maxX; i++) mvprintw(maxY-2, i, "-"); //Separator
 
 	//Below is the input area
 	p=0;
-	for(int i=0; i<strlen(input); i++) {
-		if(p>=maxX) break;
+	for(int i=backCharacterPos; i<strlen(input); i++) {
+		if(p>=maxX-strlen("INSERT")-1) break;
 		if(i == 0 && strlen(input) > maxX) {
 			i=strlen(input) - maxX;
 		}
@@ -108,6 +130,13 @@ void redrawScreen() {
 		p++;
 	}
 
+	//Help
+	mvprintw(0, maxX-strlen("ESC: change mode"), "Change mode: ESC");
+	if(currentMode == 1) { mvprintw(0,0,"Scroll: hjkl"); }
+
+	//Move the cursor to the right place
+	move(maxY-1,inputCursorPos - backCharacterPos);
+	
 	refresh();
 
 }
@@ -122,7 +151,7 @@ void writeServer(char *msg) {
 		closeApp();	
 	} else if(n == 0) {
 		endwin();
-		printf("Connection lost (Server shutdown or force disconnect");
+		printf("Connection lost (Server shutdown or force disconnect\n");
 		close(sockfd);
 		pthread_cancel(pthread_self());
 		closeApp();	
@@ -170,27 +199,89 @@ void *readServer() {
 void *getInput() {
 
 	while(1) {
-		while(strlen(input) < sizeof(input)-2) {
+		while(1) {
+			bool finished = false;
 			char c = getch();
-			if (c == 26) { continue; }
-			else if (c == 127 || c == 8) {
-				if(strlen(input) > 0) {
-					input[strlen(input)-1] = 0;
-					redrawScreen();
+			if(currentMode == 0) { //Insert mode
+				switch(c) {
+					case 27: //escape (switch modes)
+						currentMode = 1;
+						redrawScreen();
+						continue;
+						break;
+					//if (c == 26) { continue; }
+					case 127: //delete or backspace
+					case 8:
+						if(inputCursorPos > 0) {
+							for(int i=inputCursorPos; i<strlen(input); i++) {
+								input[i-1] = input[i];
+							}
+							input[strlen(input)-1] = 0;
+							inputCursorPos--;
+							redrawScreen();
+						}	
+						continue;
+						break;
+					case 10: //New line
+						finished=true;
+						break;
+				}
+
+				if(finished) { break; }
+				if (!finished && strlen(input) < sizeof(input)-2) {
+					if(inputCursorPos >= strlen(input)) {
+						input[strlen(input)] = c;
+					} else {
+						for(int i=strlen(input)-1; i>inputCursorPos; i--) {
+							input[i+1] = input[i];
+						}
+						input[inputCursorPos] = c;
+					}
+					inputCursorPos++;
+					if(inputCursorPos == backCharacterPos+maxX-strlen("INSERT") - 1) { backCharacterPos++; }
 				}	
-				continue;
-			}
-			input[strlen(input)] = c;
-			redrawScreen();
-			if(c == '\n') {
-				break;	
+				redrawScreen();
+			} else if(currentMode == 1) { //View
+				switch(c) {
+					case 27: //escape (switch modes)
+						currentMode = 0;
+						redrawScreen();
+						break;
+					case 108: //l
+						if(inputCursorPos < strlen(input)) { //right
+							inputCursorPos++; 
+							if(inputCursorPos == backCharacterPos+maxX-strlen("INSERT") - 1) { backCharacterPos++; }	
+						}
+						break;
+					case 104: //h
+						if(inputCursorPos > 0) { //left
+							inputCursorPos--;
+							if(inputCursorPos == backCharacterPos) { backCharacterPos--; }	
+						}
+						break;	
+					case 107: //k
+						if(viewMessagePosition-1 > 0) { //Up
+							viewMessagePosition--;
+							if(viewMessagePosition <= bottomMessagePosition-maxY+4) { bottomMessagePosition--; }
+						}
+						break;
+					case 106: //j
+						if(viewMessagePosition+1 < totalMessages) { //Down
+							viewMessagePosition++;
+							if(viewMessagePosition == bottomMessagePosition) { bottomMessagePosition++; }
+						}
+						break;	
+				}
+				redrawScreen();
 			}
 		}
-		input[strlen(input)+1] = '\n';
-		input[strlen(input)+2] = '\0';
+		input[strlen(input)] = '\n';
+		//input[strlen(input)+2] = '\0';
 
 		writeServer(input);
 		bzero(input, sizeof(input));
+		inputCursorPos = 0;
+		backCharacterPos = 0;
 	}
 
 }
@@ -226,6 +317,11 @@ int main(int argc, char *argv[]) {
 
 	initscr();
 	noecho();
+
+	//create colors
+	start_color();
+
+	init_pair(1, COLOR_BLACK, COLOR_WHITE);
 
 	//Create threads for reading and writing
 	pthread_t readThread;
