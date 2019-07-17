@@ -204,6 +204,8 @@ int main(int argc, char *argv[]){
 	} 
 		
 
+	printf("Server up and running\n");
+
 	while(1) {   
 
 		fd_set readfds;
@@ -304,7 +306,7 @@ int main(int argc, char *argv[]){
 				bzero(buffer, sizeof(buffer));
 				break;
             } else {
-				break;
+				current = current->next;
 			}
 		}
 	}
