@@ -42,14 +42,6 @@ int currentMode = 0;
 
 void closeApp() {
 
-	//free memory allocated for messsages	
-	for(int i=0; i<sizeof(previousMessages); i++) {
-		if(previousMessages[i] != NULL) {	
-			free(previousMessages[i]);
-			previousMessages[i] = NULL;
-		}
-	}
-	
 	endwin();
 	
 	exit(0);
@@ -147,13 +139,11 @@ void writeServer(char *msg) {
 		endwin();
 		printf("ERROR while writing message: %s\n", msg);
 		close(sockfd);
-		pthread_cancel(pthread_self());
 		closeApp();	
 	} else if(n == 0) {
 		endwin();
 		printf("Connection lost (Server shutdown or force disconnect\n");
 		close(sockfd);
-		pthread_cancel(pthread_self());
 		closeApp();	
 	}
 }
@@ -171,13 +161,11 @@ void *readServer() {
 				endwin();	
 				printf("ERROR while receiving message\n");
 				close(sockfd);
-				pthread_cancel(pthread_self());
 				closeApp();	
 			} else if (n == 0) {
 				endwin();
 				printf("Connection lost (Server shutdown or force disconnect)\n");
 				close(sockfd);
-				pthread_cancel(pthread_self());
 				closeApp();
 			} else {
 				if(current[0] == '\n' || i == maxSize-1) {
@@ -337,5 +325,4 @@ int main(int argc, char *argv[]) {
 	pthread_join(writeThread, NULL);
 
 	endwin();
-
 }
