@@ -159,7 +159,7 @@ void writeServer(char *msg) {
 }
 
 void *readServer() {
-	char buffer[maxSize];
+	char buffer[maxSize+1];
 	bzero(buffer, sizeof(buffer));
 	char current[1];
 	bzero(current, sizeof(current));
@@ -181,6 +181,7 @@ void *readServer() {
 				closeApp();
 			} else {
 				if(current[0] == '\n' || i == maxSize-1) {
+					buffer[i+1] = '\0';
 					addMessage(buffer);
 					redrawScreen();
 					break;
@@ -261,16 +262,16 @@ void *getInput() {
 						break;	
 					case 107: //k
 						if(viewMessagePosition-1 > 0) { //Up
-							int size = 1 + floor(strlen(previousMessages[viewMessagePosition])/maxX);
-							viewMessagePosition-=size;
-							if(viewMessagePosition <= bottomMessagePosition-maxY+4) { bottomMessagePosition-=size; }
+							//int size = 1 + floor(strlen(previousMessages[viewMessagePosition])/maxX);
+							viewMessagePosition-=1;
+							if(viewMessagePosition <= bottomMessagePosition-maxY+4) { bottomMessagePosition-=1; }
 						}
 						break;
 					case 106: //j
 						if(viewMessagePosition+1 < totalMessages) { //Down
-							int size = 1 + floor(strlen(previousMessages[viewMessagePosition])/maxX);
-							viewMessagePosition+=size;
-							if(viewMessagePosition == bottomMessagePosition) { bottomMessagePosition+=size; }
+							//int size = 1 + floor(strlen(previousMessages[viewMessagePosition])/maxX);
+							viewMessagePosition+=1;
+							if(viewMessagePosition == bottomMessagePosition) { bottomMessagePosition+=1; }
 						}
 						break;	
 				}
