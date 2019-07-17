@@ -15,7 +15,7 @@ struct user {
 	int id;
 	int socket;
 	struct user *next;
-	char name[20];
+	char name[21];
 
 };
 
@@ -158,7 +158,10 @@ void writeToUser(struct user *user, char *msg) {
 
 char *substring(char *input, int begin, int length) {
 
+	printf("%s", input);
+
 	char *output = malloc(sizeof(output));
+	bzero(output, sizeof(&output));
 
 	if(length > strlen(input)) {
 		length = strlen(input) - begin;
@@ -168,10 +171,13 @@ char *substring(char *input, int begin, int length) {
 	int currentBegin = 0;
 
 	while(currentBegin < length && current < strlen(input)) {
+		printf("%c", input[current]);
 		output[currentBegin] = input[current];
 		current++;
 		currentBegin++;
 	}
+
+	printf("%d", currentBegin);
 
 	output[currentBegin] = '\0';
 
@@ -287,6 +293,8 @@ int main(int argc, char *argv[]){
 							char help[5] = "/help";
 							char quit[5] = "/quit";
 							char name[5] = "/name";
+
+							int maxNameSize = 20;
 							
 							char output[maxSize+2+20];
 							
@@ -296,16 +304,17 @@ int main(int argc, char *argv[]){
 							} else if(strncmp(buffer, quit, sizeof(quit)-1) == 0) { //Quit
 								disconnectUser(current);
 							} else if(strncmp(buffer, name, sizeof(name)-1) == 0) { //name change
-								char oldname[20];
+								char oldname[maxNameSize];
 								bzero(oldname, sizeof(oldname));
 								if(strlen(current->name) > 0) { strcpy(oldname, current->name); }
 								
-								char output[20];
+								char output[maxNameSize+1];
 								bzero(output, sizeof(output));
-								strncpy(output, substring(buffer, sizeof(name)+1, 20), 20);
-								strcpy(current->name, output);
+								strncpy(output, substring(buffer, sizeof(name)+1, maxNameSize), maxNameSize);
+								output[strlen(output)] = '\0';
+								strncpy(current->name, output, maxNameSize);
 								
-								char message[100];
+								char message[maxSize];
 								if(strlen(oldname) > 0) { 
 									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as \"%s(%d)\"", oldname, current->id, current->name, current->id);
 								} else {
