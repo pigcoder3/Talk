@@ -85,9 +85,8 @@ void addUser(struct sockaddr_in cli_addr, int socket) {
 	user->next = root;
 	root = user;
 	
-	char output[100];
-	bzero(output, sizeof(output));
-	sprintf(output, "[SERVER]: %s(%d) joined the chat!", inet_ntoa(user->cli_addr.sin_addr), user->id);
+	char output[102];
+	snprintf(output, sizeof(output)-2,"[SERVER]: %s(%d) joined the chat!", inet_ntoa(user->cli_addr.sin_addr), user->id);
 	writeToAll(output);
 
 	char welcome[100] = "[SERVER]: Welcome! Type '/help' for help.";
@@ -106,8 +105,8 @@ void disconnectUser(struct user *user) {
 
 	while(current != NULL) {
 		if(current->socket != user->socket) {
-			char output[100];
-			sprintf(output, "[SERVER]: %s(%d) left the chat", inet_ntoa(user->cli_addr.sin_addr), user->id);
+			char output[102];
+			snprintf(output, sizeof(output)-2, "[SERVER]: %s(%d) left the chat", inet_ntoa(user->cli_addr.sin_addr), user->id);
 			writeToAll(output);
 			break;
 		}
@@ -120,13 +119,14 @@ void disconnectUser(struct user *user) {
 
 void writeToAll(char *msg) {
 
-	msg[strlen(msg)] = '\n';
-	
+	msg[strlen(msg)+1] = '\n';
+	msg[strlen(msg)+2] = '\0';
+
 	int n = 0;
 	struct user *current = root;
 
 	while(current != NULL) {
-		if((n = (write(current->socket, msg, strlen(msg)))) < 0) {
+		if((n = (write(current->socket, msg, strlen(msg)+2))) < 0) {
 			printf("ERROR while writing to user: %s(%d)\n", inet_ntoa(current->cli_addr.sin_addr), current->id);
 			removeUser(current);
 		}
@@ -138,10 +138,11 @@ void writeToAll(char *msg) {
 
 void writeToUser(struct user *user, char *msg) {
 
-	msg[strlen(msg)] = '\n';
+	msg[strlen(msg)+1] = '\n';
+	msg[strlen(msg)+2] = '\0';
 	int n = 0;
 	
-	if((n = (write(user->socket, msg, strlen(msg)))) < 0) {
+	if((n = (write(user->socket, msg, strlen(msg)+2))) < 0) {
 		printf("ERROR while writing to user: %s\n", inet_ntoa(user->cli_addr.sin_addr));
 		removeUser(user);	
 	}
@@ -277,8 +278,7 @@ int main(int argc, char *argv[]){
 							char quit[5] = "/quit";
 							char name[5] = "/name";
 							
-							char output[maxSize+1+20];
-							buffer[strlen(buffer)] = '\0';
+							char output[maxSize+2+20];
 							
 							if(strncmp(buffer, help, strlen(help)) == 0) {
 								char helpOutput[100] = "[HELP] /help - Show help menu\n[HELP] /quit - Quit the app";
@@ -289,7 +289,7 @@ int main(int argc, char *argv[]){
 								//char output[1000];
 								//substring(buffer, output, 6, 
 							} else { // no commands
-								sprintf(output, "[%s(%d)]: %s", inet_ntoa(current->cli_addr.sin_addr), current->id, buffer);
+								snprintf(output, sizeof(output)-1, "[%s(%d)]: %s", inet_ntoa(current->cli_addr.sin_addr), current->id, buffer);
 								printf("%s\n", output);
 								writeToAll(output);
 								bzero(output, sizeof(output));
@@ -302,13 +302,10 @@ int main(int argc, char *argv[]){
 				}
 				bzero(currentChar, sizeof(currentChar));
 				bzero(buffer, sizeof(buffer));
-				//printf("In buffer: %s\n", buffer);
 				break;
             } else {
-				current = current->next;
+				break;
 			}
 		}
 	}
-    close(sockfd);
-    return 0; 
 }
