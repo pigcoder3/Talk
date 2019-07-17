@@ -15,6 +15,7 @@ struct user {
 	int id;
 	int socket;
 	struct user *next;
+	char name[21];
 
 };
 
@@ -85,6 +86,8 @@ void addUser(struct sockaddr_in cli_addr, int socket) {
 	user->next = root;
 	root = user;
 	
+	bzero(user->name, sizeof(user->name));
+
 	char output[102];
 	snprintf(output, sizeof(output)-2,"[SERVER]: %s(%d) joined the chat!", inet_ntoa(user->cli_addr.sin_addr), user->id);
 	writeToAll(output);
@@ -106,7 +109,11 @@ void disconnectUser(struct user *user) {
 	while(current != NULL) {
 		if(current->socket != user->socket) {
 			char output[102];
-			snprintf(output, sizeof(output)-2, "[SERVER]: %s(%d) left the chat", inet_ntoa(user->cli_addr.sin_addr), user->id);
+			if(strlen(user->name) > 0) { 
+				snprintf(output, sizeof(output)-2, "[SERVER]: %s(%d) left the chat", user->name, user->id);
+			} else {
+				snprintf(output, sizeof(output)-2, "[SERVER]: %s(%d) left the chat", inet_ntoa(user->cli_addr.sin_addr), user->id);
+			}
 			writeToAll(output);
 			break;
 		}
@@ -149,27 +156,34 @@ void writeToUser(struct user *user, char *msg) {
 
 }
 
-/*
-int substring(char *input, char *output, int begin, int end) {
+char *substring(char *input, int begin, int length) {
 
-	int length = begin - end;
+	printf("%s", input);
 
-	if(length > sizeof(output)) {
-		length = sizeof(output);
+	char *output = malloc(sizeof(output));
+	bzero(output, sizeof(&output));
+
+	if(length > strlen(input)) {
+		length = strlen(input) - begin;
 	}
 
 	int current = begin;
 	int currentBegin = 0;
 
-	while(currentBegin < length) {
-		output[currentbegin] = input[current];
+	while(currentBegin < length && current < strlen(input)) {
+		printf("%c", input[current]);
+		output[currentBegin] = input[current];
 		current++;
 		currentBegin++;
 	}
 
-	return length;
+	printf("%d", currentBegin);
 
-}*/
+	output[currentBegin] = '\0';
+
+	return output;
+
+}
 
 int main(int argc, char *argv[]){
 	
@@ -279,19 +293,42 @@ int main(int argc, char *argv[]){
 							char help[5] = "/help";
 							char quit[5] = "/quit";
 							char name[5] = "/name";
+
+							int maxNameSize = 20;
 							
 							char output[maxSize+2+20];
 							
-							if(strncmp(buffer, help, strlen(help)) == 0) {
-								char helpOutput[100] = "[HELP] /help - Show help menu\n[HELP] /quit - Quit the app";
+							if(strncmp(buffer, help, sizeof(help)-1) == 0) {
+								char helpOutput[maxSize] = "[HELP] /help - Show help menu\n[HELP] /name [newname] - change your name. New name can only be 20 characters.\n[HELP] /quit - Quit the app";
 								writeToUser(current, helpOutput);
-							} else if(strncmp(buffer, quit, strlen(quit)) == 0) { //Quit
+							} else if(strncmp(buffer, quit, sizeof(quit)-1) == 0) { //Quit
 								disconnectUser(current);
-							} else if(strncmp(buffer, name, strlen(name)) == 0) { //name change
-								//char output[1000];
-								//substring(buffer, output, 6, 
+							} else if(strncmp(buffer, name, sizeof(name)-1) == 0) { //name change
+								char oldname[maxNameSize];
+								bzero(oldname, sizeof(oldname));
+								if(strlen(current->name) > 0) { strcpy(oldname, current->name); }
+								
+								char output[maxNameSize+1];
+								bzero(output, sizeof(output));
+								strncpy(output, substring(buffer, sizeof(name)+1, maxNameSize), maxNameSize);
+								output[strlen(output)] = '\0';
+								strncpy(current->name, output, maxNameSize);
+								
+								char message[maxSize];
+								if(strlen(oldname) > 0) { 
+									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as \"%s(%d)\"", oldname, current->id, current->name, current->id);
+								} else {
+									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as \"%s(%d)\"", inet_ntoa(current->cli_addr.sin_addr), current->id, current->name, current->id);
+								}
+								
+								writeToAll(message);
+								printf("%s\n", message);
 							} else { // no commands
-								snprintf(output, sizeof(output)-1, "[%s(%d)]: %s", inet_ntoa(current->cli_addr.sin_addr), current->id, buffer);
+								if(strlen(current->name) > 0) { 	
+									snprintf(output, sizeof(output)-1, "[%s(%d)]: %s", current->name, current->id, buffer);
+								} else {
+									snprintf(output, sizeof(output)-1, "[%s(%d)]: %s", inet_ntoa(current->cli_addr.sin_addr), current->id, buffer);
+								}
 								printf("%s\n", output);
 								writeToAll(output);
 								bzero(output, sizeof(output));
