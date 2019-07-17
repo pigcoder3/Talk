@@ -158,7 +158,7 @@ void writeToUser(struct user *user, char *msg) {
 
 char *substring(char *input, int begin, int length) {
 
-	char *output;
+	char *output = malloc(sizeof(output));
 
 	if(length > strlen(input)) {
 		length = strlen(input) - begin;
@@ -299,21 +299,21 @@ int main(int argc, char *argv[]){
 								char oldname[20];
 								bzero(oldname, sizeof(oldname));
 								if(strlen(current->name) > 0) { strcpy(oldname, current->name); }
-				
-								printf(""); // I get a seg fault if this is not here so dont remove it
-								//I have no clue why that happens
-
+								printf("E\n");
 								char output[20];
 								bzero(output, sizeof(output));
-								strncpy(output, substring(buffer, sizeof(name)+1, 19), 19);
+								printf("E1.2\n");
+								strncpy(output, substring(buffer, sizeof(name)+1, 20), 20);
+								printf("E1.8\n");
 								strcpy(current->name, output);
-
+								printf("E2\n");
 								char message[100];
 								if(strlen(oldname) > 0) { 
 									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as \"%s(%d)\"", oldname, current->id, current->name, current->id);
 								} else {
 									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as \"%s(%d)\"", inet_ntoa(current->cli_addr.sin_addr), current->id, current->name, current->id);
 								}
+								printf("E3\n");
 								writeToAll(message);
 								printf("%s\n", message);
 							} else { // no commands
