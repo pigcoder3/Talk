@@ -167,7 +167,7 @@ char *substring(char *input, int begin, int length) {
 	int current = begin;
 	int currentBegin = 0;
 
-	while(currentBegin < length) {
+	while(currentBegin < length && current + begin < strlen(input)) {
 		output[currentBegin] = input[current];
 		current++;
 		currentBegin++;
@@ -305,14 +305,14 @@ int main(int argc, char *argv[]){
 
 								char output[20];
 								bzero(output, sizeof(output));
-								strcpy(output, substring(buffer, sizeof(name)+1, strlen(buffer)-sizeof(name)-1));
+								strncpy(output, substring(buffer, sizeof(name)+1, 19), 19);
 								strcpy(current->name, output);
 
 								char message[100];
 								if(strlen(oldname) > 0) { 
-									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as %s(%d)", oldname, current->id, current->name, current->id);
+									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as \"%s(%d)\"", oldname, current->id, current->name, current->id);
 								} else {
-									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as %s(%d)", inet_ntoa(current->cli_addr.sin_addr), current->id, current->name, current->id);
+									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as \"%s(%d)\"", inet_ntoa(current->cli_addr.sin_addr), current->id, current->name, current->id);
 								}
 								writeToAll(message);
 								printf("%s\n", message);
