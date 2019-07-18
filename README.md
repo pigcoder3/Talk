@@ -24,11 +24,14 @@ make client
 
 #### Help
 Description: Returns all commands
+
 usage: `/help`
 
 #### Rename
 Description: Renames you
+
 usage: `/name [newname]`
+
 NOTE: `newname` must be 20 characters or less (It will be truncated if not)
 
 #### Private Message
@@ -39,4 +42,5 @@ NOTE: Private messages are not logged on the server.
 
 #### Quit
 Description: Quits the application
-usage: '/quit'	
+
+usage: `/quit`	
