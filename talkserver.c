@@ -86,7 +86,7 @@ void addUser(struct sockaddr_in cli_addr, int socket) {
 	user->next = root;
 	root = user;
 	
-	bzero(user->name, sizeof(user->name));
+	memset(user->name, 0, sizeof(user->name));
 
 	char output[102];
 	snprintf(output, sizeof(output)-2,"[SERVER]: %s(%d) joined the chat!", inet_ntoa(user->cli_addr.sin_addr), user->id);
@@ -97,6 +97,21 @@ void addUser(struct sockaddr_in cli_addr, int socket) {
 	writeToUser(user, welcome);
 
 	usersConnected = usersConnected + 1;
+
+}
+
+struct user *findUser(char* name) {
+
+	struct user *current = root;
+
+	while(current != NULL) {
+		if(strcmp(name, current->name) == 0) {
+			return current;
+		}
+		current = current->next;
+	}
+
+	return 0;
 
 }
 
@@ -126,8 +141,12 @@ void disconnectUser(struct user *user) {
 
 void writeToAll(char *msg) {
 
+	printf("e1.65\n");
+	
 	msg[strlen(msg)+1] = '\n';
 	msg[strlen(msg)+2] = '\0';
+
+	printf("e1.67\n");
 
 	int n = 0;
 	struct user *current = root;
@@ -145,10 +164,16 @@ void writeToAll(char *msg) {
 
 void writeToUser(struct user *user, char *msg) {
 
+	printf("e1.65\n");
+	
 	msg[strlen(msg)+1] = '\n';
 	msg[strlen(msg)+2] = '\0';
+
+	printf("e1.67\n");
 	int n = 0;
-	
+
+	printf("E1.7\n");
+
 	if((n = (write(user->socket, msg, strlen(msg)+2))) < 0) {
 		printf("ERROR while writing to user: %s\n", inet_ntoa(user->cli_addr.sin_addr));
 		removeUser(user);	
@@ -156,12 +181,32 @@ void writeToUser(struct user *user, char *msg) {
 
 }
 
+int indexof(char character, char* string, int which) {
+
+	int whichNumber = 1;	
+
+	int current = 0;
+
+	while(string[current] != 0) {
+		printf("%c\n, %d, %d", string[current], which, whichNumber);
+		if(string[current] == character && whichNumber == which) {
+			return current;
+		} else if(string[current] == character) {
+			whichNumber++;
+		}
+		current++;
+	}
+
+	return -1;
+
+}
+
 char *substring(char *input, int begin, int length) {
 
-	printf("%s", input);
+	printf("%seeeeeeee", input);
 
 	char *output = malloc(sizeof(output));
-	bzero(output, sizeof(&output));
+	memset(output, 0, sizeof(&output));
 
 	if(length > strlen(input)) {
 		length = strlen(input) - begin;
@@ -171,13 +216,10 @@ char *substring(char *input, int begin, int length) {
 	int currentBegin = 0;
 
 	while(currentBegin < length && current < strlen(input)) {
-		printf("%c", input[current]);
 		output[currentBegin] = input[current];
 		current++;
 		currentBegin++;
 	}
-
-	printf("%d", currentBegin);
 
 	output[currentBegin] = '\0';
 
@@ -201,7 +243,7 @@ int main(int argc, char *argv[]){
 	//printf("%d", sockfd);
 
 	//Bind the port	
-	bzero((char *) &serv_addr, sizeof(serv_addr));
+	memset((char *) &serv_addr, 0, sizeof(serv_addr));
 	portno = atoi(argv[1]);
 	serv_addr.sin_family = AF_INET;   
     serv_addr.sin_addr.s_addr = INADDR_ANY;   
@@ -277,9 +319,10 @@ int main(int argc, char *argv[]){
 		while(current != NULL) {
 			if (FD_ISSET( current->socket, &readfds)) {   
 				char buffer[maxSize];
-				bzero(buffer, sizeof(buffer));
+				memset(buffer, 0, sizeof(buffer));
 				char currentChar[1];
-              	for(int i=0; i<sizeof(buffer)-1; i++) {
+              	memset(currentChar, 0, sizeof(currentChar));
+				for(int i=0; i<sizeof(buffer)-1; i++) {
 					//read message
 					if((n = read(current->socket, currentChar, 1)) == -1) {
 						printf("ERROR while recieving message\n");
@@ -289,41 +332,128 @@ int main(int argc, char *argv[]){
 						break;
 					} else {
 						if(currentChar[0] == '\n' || i == maxSize -1) {
+							printf("E-1\n");
 							//Commands
 							char help[5] = "/help";
 							char quit[5] = "/quit";
 							char name[5] = "/name";
+							char msg[4] = "/msg";
+
+							int numberOfCommands = 4;
 
 							int maxNameSize = 20;
 							
 							char output[maxSize+2+20];
+							memset(output, 0, sizeof(output));
 							
 							if(strncmp(buffer, help, sizeof(help)-1) == 0) {
-								char helpOutput[maxSize] = "[HELP] /help - Show help menu\n[HELP] /name [newname] - change your name. New name can only be 20 characters.\n[HELP] /quit - Quit the app";
+								char helpOutput[maxSize*numberOfCommands] = "[HELP] /help - Show help menu\n[HELP] /name [newname] - change your name. New name can only be 20 characters.\n[HELP] /msg [username] [msg] - send a private message. The receiver must have a name (ip address not displayed). Private messages are not logged on the server.\n[HELP] /quit - Quit the app";
 								writeToUser(current, helpOutput);
 							} else if(strncmp(buffer, quit, sizeof(quit)-1) == 0) { //Quit
 								disconnectUser(current);
+							} else if(strncmp(buffer, msg, sizeof(msg)-1) == 0) { // private message
+								//Private messages are not logged on the server
+								printf("E0\n");
+								char user[maxSize+1];
+								memset(user, 0, sizeof(user));
+								char message[maxSize+1];
+								memset(message, 0, sizeof(message));
+								int spaceindex = indexof(' ', buffer, 2);
+								if(spaceindex != -1) {
+									strncpy(user, substring(buffer, sizeof(msg)+1, spaceindex - sizeof(msg)), spaceindex - sizeof(msg)-1);
+									strncpy(message, substring(buffer, spaceindex + 1, sizeof(buffer) - spaceindex - 1), sizeof(buffer)-spaceindex-1);
+								} else {
+									strncpy(user, substring(buffer, sizeof(msg)+1, sizeof(buffer) - sizeof(msg)), sizeof(buffer) - sizeof(msg)-1);
+									strncpy(message, "", 0);	
+								}
+								printf("E1\n");	
+								struct user *receiver = findUser(user);
+								printf("E1.2\n");
+								
+								//If a user does not exist
+								if(!receiver) { 
+									char noUser[100+maxNameSize];
+									memset(noUser, 0, sizeof(noUser));
+									snprintf(noUser, sizeof(noUser), "[SERVER] The user '%s' does not exist!\n", user);
+									writeToUser(current, noUser); 
+									break; 
+								}
+								printf("E1.4\n");
+
+								//If the user tries to message theirself
+								if(receiver->socket == current->socket) { 
+									printf("E1.6\n"); 
+									char messageSelf[100];
+									memset(messageSelf, 0, sizeof(messageSelf));
+									snprintf(messageSelf, sizeof(messageSelf), "[SERVER] You are attempting to message yourself");
+									writeToUser(current, messageSelf); printf("E1.8\n"); 
+									break; 
+								}
+								printf("E2\n");	
+	
+								char formattedMessage[maxSize+1];
+								//Build the message	
+								message[strlen(message)] = '\0';
+								//Format the message, make sure to put the ip or the name when necessary
+								if(strlen(current->name) > 0) {
+									if(strlen(receiver->name) > 0) {
+										snprintf(formattedMessage, maxSize, "[PRIVATE] [%s(%d) -> %s(%d)]: %s", current->name, current->id, receiver->name, receiver->id, message);
+									} else {
+										snprintf(formattedMessage, maxSize, "[PRIVATE] [%s(%d) -> %s(%d)]: %s", current->name, current->id, inet_ntoa(receiver->cli_addr.sin_addr), receiver->id, message);
+									}
+								} else {
+									if(strlen(receiver->name) > 0) {
+										snprintf(formattedMessage, maxSize, "[PRIVATE] [%s(%d) -> %s(%d)]: %s", inet_ntoa(current->cli_addr.sin_addr), current->id, receiver->name, receiver->id, message);
+									} else {
+										snprintf(formattedMessage, maxSize, "[PRIVATE] [%s(%d) -> %s(%d)]: %s", current->name, current->id, inet_ntoa(receiver->cli_addr.sin_addr), receiver->id, message);
+									}
+								}
+								printf("E3\n");	
+								//Send the message
+								writeToUser(receiver, formattedMessage);
+								writeToUser(current, formattedMessage);
 							} else if(strncmp(buffer, name, sizeof(name)-1) == 0) { //name change
 								char oldname[maxNameSize];
-								bzero(oldname, sizeof(oldname));
+								memset(oldname, 0, sizeof(oldname));
 								if(strlen(current->name) > 0) { strcpy(oldname, current->name); }
+								printf("E1\n");	
 								
-								char output[maxNameSize+1];
-								bzero(output, sizeof(output));
-								strncpy(output, substring(buffer, sizeof(name)+1, maxNameSize), maxNameSize);
+								//Reseting the output variable
+								memset(output, 0, sizeof(output));
+
+								//Getting the location of the second space in order to get the name requested
+								int spaceindex = indexof(' ', buffer, 2);
+								if(spaceindex != -1) {
+									strncpy(output, substring(buffer, sizeof(name)+1, spaceindex), spaceindex);
+								} else {
+									strncpy(output, substring(buffer, sizeof(name)+1, sizeof(buffer) - sizeof(name)), sizeof(buffer) - sizeof(name));
+								}
+								printf("E2\n");
 								output[strlen(output)] = '\0';
-								strncpy(current->name, output, maxNameSize);
+								printf("E2.1\n");
 								
+								//If the name has been taken
+								if(findUser(output)) { 
+									char nameUsed[100+maxNameSize];
+									memset(nameUsed, 0, sizeof(nameUsed));
+									snprintf(nameUsed, sizeof(nameUsed), "[SERVER] The name '%s' is already taken!", output);
+									writeToUser(current, nameUsed);
+									break; 
+								}
+								strncpy(current->name, output, maxNameSize);
+								printf("E3\n");	
 								char message[maxSize];
+								//Put oldname or ip when necessary
 								if(strlen(oldname) > 0) { 
 									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as \"%s(%d)\"", oldname, current->id, current->name, current->id);
 								} else {
 									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as \"%s(%d)\"", inet_ntoa(current->cli_addr.sin_addr), current->id, current->name, current->id);
 								}
-								
+								printf("E4\n");	
 								writeToAll(message);
 								printf("%s\n", message);
 							} else { // no commands
+								//Put name or ip when necessary
 								if(strlen(current->name) > 0) { 	
 									snprintf(output, sizeof(output)-1, "[%s(%d)]: %s", current->name, current->id, buffer);
 								} else {
@@ -331,7 +461,7 @@ int main(int argc, char *argv[]){
 								}
 								printf("%s\n", output);
 								writeToAll(output);
-								bzero(output, sizeof(output));
+								memset(output, 0, sizeof(output));
 							}
 							break;
 						} else {
@@ -339,8 +469,8 @@ int main(int argc, char *argv[]){
 						}
 					}
 				}
-				bzero(currentChar, sizeof(currentChar));
-				bzero(buffer, sizeof(buffer));
+				memset(buffer, 0, sizeof(buffer));
+				memset(currentChar, 0, sizeof(currentChar));
 				break;
             } else {
 				current = current->next;
