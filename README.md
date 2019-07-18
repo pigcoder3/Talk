@@ -35,10 +35,17 @@ usage: `/name [newname]`
 NOTE: `newname` must be 20 characters or less (It will be truncated if not)
 
 #### Private Message
-Description: Sends a message to a user
-usage: `/msg [username] [message]
-NOTE: The receiver must have a name (ip address not displayed).
+Description: Sends a message to a user. There are two commands for this.
+
 NOTE: Private messages are not logged on the server.
+
+##### By Name
+usage: `/msg [username] [message]`
+
+NOTE: The receiver must have a name (not the ip address displayed).
+
+##### By Id
+usage: `/msgid [userid] [message]`
 
 #### Quit
 Description: Quits the application
