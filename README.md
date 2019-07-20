@@ -68,6 +68,7 @@ usage: `/name [newname]`
 
 NOTE: `newname` must be 20 characters or less (It will be truncated if not)
 
+<<<<<<< HEAD
 #### Join
 Description: joins a room
 
@@ -89,16 +90,20 @@ usafe: `/leave`
 
 NOTE; If you are the last one in the room when you leave, it will be destroyed
 
-#### Private Message By Name
-Description: Sends a message to a user by name
-usage: `/msg [username] [message]`
-NOTE: The receiver must have a name (ip address not displayed).
+#### Private Message
+Description: Sends a message to a user. There are two commands for this.
+
 NOTE: Private messages are not logged on the server.
 
-#### Private Message By Id
-Description: Sends a message to a user by id. Useful when a user has no name.
+##### By Name
+usage: `/msg [username] [message]`
+
+NOTE: The receiver must have a name (not the ip address displayed).
+
+##### By Id
 usage: `/msgid [userid] [message]`
-NOTE: Private messages are not logged on the server.
+
+NOTE: Do not use the user's name, but his/her id
 
 #### Quit
 Description: Quits the application
