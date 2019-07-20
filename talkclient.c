@@ -20,7 +20,6 @@ struct hostent *server;
 int maxX = 0;
 int maxY = 0;
 
-char input[maxSize+2] = {0};
 
 #define totalStoredMessages 500
 char *previousMessages[totalStoredMessages];
@@ -48,6 +47,17 @@ int inRoom = 0;
 int currentMode = 0;
 //0: input
 //1: view
+
+char input[maxSize] = {0};
+
+void writeServer(char *msg);
+
+void refreshRooms() {
+	writeServer("/refresh\n");
+	memset(previousMessages, 0, sizeof(previousMessages));
+	totalRooms = 0;
+
+}
 
 void closeApp() {
 
@@ -160,6 +170,12 @@ void redrawScreen() {
 				}
 			}
 		} 
+
+		//If there are no rooms say so
+		if(totalRooms == 0) {
+			p = ceil((maxY-inputRows-titleRows)*(3.0/4)/2 + titleRows)-1;
+			mvprintw(p, maxX/2 - strlen("No Rooms! /create [name] to make one")/2, "No Rooms! /create [name] to make one");
+		}
 	}
 
 	//Draw Title
@@ -243,11 +259,11 @@ void *readServer() {
 				if(current[0] == '\n' || i == maxSize-1) {
 					buffer[i+1] = '\0';
 					if(readingRooms == 1) {
-						if(strcmp(buffer, "")) {
+						if(strcmp(buffer, "") != 0) {
 							addRoom(buffer);
 						}
 					} else {
-						if(strcmp(buffer, "")) {
+						if(strcmp(buffer, "") != 0) {
 							addMessage(buffer);
 						}
 					}
@@ -270,6 +286,7 @@ void *readServer() {
 						memset(buffer, 0, sizeof(buffer));
 						memset(previousMessages, 0, sizeof(previousMessages));
 						totalMessages=0;
+						refreshRooms();
 						redrawScreen();
 					} else if(!readingRooms && strncmp(buffer, leftTag, sizeof(leftTag)-1) == 0) {
 						//The user has successfully left the room
@@ -277,7 +294,7 @@ void *readServer() {
 						memset(buffer, 0, sizeof(buffer));
 						memset(previousMessages, 0, sizeof(previousMessages));
 						totalMessages=0;
-						writeServer("/refresh");
+						refreshRooms();
 						redrawScreen();
 					}
 					buffer[i] = current[0];
@@ -429,7 +446,7 @@ int main(int argc, char *argv[]) {
 	pthread_t writeThread;	
 	
 	pthread_create(&readThread, NULL, readServer, NULL);
-	writeServer("/refresh\n");
+	refreshRooms();
 	pthread_create(&writeThread, NULL, getInput, NULL);
 
 	pthread_join(readThread, NULL);

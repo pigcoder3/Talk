@@ -50,12 +50,12 @@ void writeToAllInRoom(char *msg, int roomId);
 void writeToAll(char *msg);
 void writeToUser( struct user *user, char *msg);
 
-void removeroom(struct room *room);
+void removeroom(int id);
 int addroom(char *name);
 struct room *findRoomByName(char *name);
 struct room *findRoomById(int id);
 
-struct room *findRoomByName(char *name);
+int numUsersInRoom(int id);
 
 void removeUser(struct user *user) {
 
@@ -98,12 +98,7 @@ void removeUser(struct user *user) {
 	usersConnected--;
 
 	//Check to see if the room is empty. If so delete it.
-	int foundUser = 0;
-	current = usersRoot;
-	while(current != NULL) { 
-		if(current->roomid == roomid) { foundUser = 0; break; }
-	}
-	if(!foundUser) { removeroom(findRoomById(roomid)); }
+	if(numUsersInRoom(roomid) == 0) { removeroom(roomid); }
 }
 
 void addUser(struct sockaddr_in cli_addr, int socket) {
@@ -159,18 +154,22 @@ struct user *findUserById(int id) {
 
 }
 
-void removeroom(struct room *room) {
+void removeroom(int id) {
 
-	if(!room) { return; }
+	printf("Removing room ID: %d\n", id);
 
 	int number = 0;
-	struct room *previous = malloc(sizeof(room));
+	struct room *previous = malloc(sizeof(struct room));
 	if(previous == NULL) { printf("out of memory."); }
 	struct room *current = roomsRoot;
 	while(current != NULL) {
-		if(current->id == room->id) {
+		printf("%d\n", current->id);
+		if(current->id == id) {
+			printf("Found it");
 			if(number != 0 && previous != NULL) {
+				printf("It is NOT the root");
 				if(current->next != NULL) {
+					printf("It is not the end.");
 					previous->next = current->next;
 					current = NULL;
 					break;
@@ -179,7 +178,9 @@ void removeroom(struct room *room) {
 					break;
 				}
 			} else { //this must be the root
+				printf("It is the root");
 				if(current->next != NULL) {
+					printf("It is not the end.");
 					roomsRoot = current->next;
 					current = NULL;
 					break;
@@ -193,7 +194,7 @@ void removeroom(struct room *room) {
 		previous = current;
 		current = current->next;
 	}
-	free(previous);
+	//free(previous);
 	totalRooms--;
 }
 
@@ -249,6 +250,25 @@ struct room *findRoomById(int id) {
 	return 0;
 
 }
+
+int numUsersInRoom(int id) {
+
+	int amount = 0;
+
+	//Search through all users and check for their roomid
+	struct user *current = usersRoot;
+	while(current != NULL) {
+		if(current->id == id) {
+			amount++;
+		}
+		current = current->next;
+	}
+	
+	printf("%d", amount);
+	return amount;
+
+}
+
 void disconnectUser(struct user *user) {
 
 	printf("Client disconnected: %s, ID: %d\n", inet_ntoa(user->cli_addr.sin_addr), user->id);
@@ -455,6 +475,7 @@ int main(int argc, char *argv[]){
         //else its some IO operation on some other socket 
 		current = usersRoot;
 		while(current != NULL) {
+			printf("%d\n", current->id);
 			if (FD_ISSET( current->socket, &readfds)) {   
 				char buffer[maxSize];
 				memset(buffer, 0, sizeof(buffer));
@@ -470,6 +491,7 @@ int main(int argc, char *argv[]){
 						break;
 					} else {
 						if(currentChar[0] == '\n' || i == maxSize -1) {
+							printf("%s\n", buffer);
 							//Commands
 							char refresh[8] = "/refresh"; //refresh rooms
 							char join[5] = "/join";
@@ -626,7 +648,7 @@ int main(int argc, char *argv[]){
 								while(currentRoom != NULL) {	
 									char roomString[maxSize];
 									memset(roomString, 0, sizeof(roomString));
-									snprintf(roomString, sizeof(roomString), "[ROOM] \"%s\" id:%d", currentRoom->name, currentRoom->id);
+									snprintf(roomString, sizeof(roomString), "[ROOM] \"%s\" id:%d Users:%d", currentRoom->name, currentRoom->id, numUsersInRoom(currentRoom->id));
 									writeToUser(current, roomString);
 									
 									currentRoom = currentRoom->next;	
@@ -661,6 +683,7 @@ int main(int argc, char *argv[]){
 						
 
 								current->roomid = atoi(roomId);
+								printf("new id:%d\n", current->roomid);
 								//Indicate to the client that they have joined a room
 								char joined[9];
 								memset(joined, 0, sizeof(joined));
@@ -672,7 +695,7 @@ int main(int argc, char *argv[]){
 								memset(message, 0, sizeof(message));
 								snprintf(message, sizeof(message), "[SERVER] You joined a room.");
 								writeToUser(current, message);
-						
+
 								//Tell all users in that room that the user has left
 								memset(message, 0, sizeof(message));
 								if(strlen(current->name) > 0) { 
@@ -693,38 +716,32 @@ int main(int argc, char *argv[]){
 									break;
 								}
 
-								int roomId = current->roomid;
+								int lastRoomId = current->roomid; //This is changing because it is a pointer i think
 
-								current->roomid=0;	
+								//Check to see if the room is empty. If so delete it.
+								if(numUsersInRoom(lastRoomId) < 1) { removeroom(lastRoomId); }
+								current->roomid = 0;
 
-								//Indicate to the client that they have joined a room
+								//Indicate to the client that they have left the room
 								char left[7];
 								memset(left, 0, sizeof(left));
 								snprintf(left, sizeof(left), "<left>");
 								writeToUser(current, left);
 
-								//Indicate to the user that they have joined a room
+								//indicate to the user that they have left the room
 								char message[maxSize];
 								memset(message, 0, sizeof(message));
-								snprintf(message, sizeof(message), "[SERVER] You left the room.");
+								snprintf(message, sizeof(message), "[SERVER] you left the room.");
 								writeToUser(current, message);
 
-								//Tell all users in that room that the user has left
+								//tell all users in that room that the user has left
 								memset(message, 0, sizeof(message));
 								if(strlen(current->name) > 0) { 
 									snprintf(message, sizeof(message)-2, "[SERVER]: %s(%d) left the room", current->name, current->id);
 								} else {
 									snprintf(message, sizeof(message)-2, "[SERVER]: %s(%d) left the room", inet_ntoa(current->cli_addr.sin_addr), current->id);
 								}
-								writeToAllInRoom(message, roomId);
-								
-								//Check to see if the room is empty. If so delete it.
-								int foundUser = 0;
-								struct user *currentUser = usersRoot;
-								while(currentUser != NULL) { 
-									if(currentUser->roomid == roomId) { foundUser = 0; break; }
-								}
-								if(!foundUser) { removeroom(findRoomById(roomId)); }
+								writeToAllInRoom(message, lastRoomId);
 							} else if(strncmp(buffer, create, sizeof(create)) == 0) { //Create room
 								//Make sure the user in not in a room
 								if(current->roomid != 0) {
@@ -750,7 +767,9 @@ int main(int argc, char *argv[]){
 
 								//Put the user in the room that they created
 								current->roomid = addroom(roomName);
-								
+							
+								printf("NEW ID:%d\n", current->roomid);
+
 								//Indicate to the client that they have joined a room
 								char joined[9];
 								memset(joined, 0, sizeof(joined));
