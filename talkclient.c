@@ -182,7 +182,7 @@ void redrawScreen() {
 	mvprintw(0, maxX/2 - strlen("TALK")/2, "TALK"); //centered
 	for(int i=0; i<maxX; i++) mvprintw(1, i, "-"); //Separator
 
-	if(inRoom == 0) { mvprintw(1, maxX/2 - strlen("ROOMS")/2, "ROOMS"); }
+	if(inRoom == 0) { mvprintw(1, maxX/2 - strlen("ROOMS - /refresh to refresh")/2, "ROOMS - /refresh to refresh"); }
 	else { mvprintw(1, maxX/2 - strlen("MESSAGES")/2, "MESSAGES"); }
 
 	//Current mode

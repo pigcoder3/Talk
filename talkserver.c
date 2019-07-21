@@ -639,7 +639,7 @@ int main(int argc, char *argv[]){
 								writeToAll(message);
 								printf("%s\n", message);
 							} else if(strncmp(buffer, refresh, sizeof(refresh)) == 0) { //Give rooms please
-								//Begin with the opening rooms tag
+								//begin with the opening rooms tag
 								char roomTag[8] = "<rooms>";
 								snprintf(output, sizeof(output), "%s", roomTag);	
 								writeToUser(current, output);
@@ -648,7 +648,7 @@ int main(int argc, char *argv[]){
 								while(currentRoom != NULL) {	
 									char roomString[maxSize];
 									memset(roomString, 0, sizeof(roomString));
-									snprintf(roomString, sizeof(roomString), "[ROOM] \"%s\" id:%d Users:%d", currentRoom->name, currentRoom->id, numUsersInRoom(currentRoom->id));
+									snprintf(roomString, sizeof(roomString), "[room] \"%s\" id:%d users:%d", currentRoom->name, currentRoom->id, numUsersInRoom(currentRoom->id));
 									writeToUser(current, roomString);
 									
 									currentRoom = currentRoom->next;	
