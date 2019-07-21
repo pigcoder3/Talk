@@ -156,20 +156,16 @@ struct user *findUserById(int id) {
 
 void removeroom(int id) {
 
-	printf("Removing room ID: %d\n", id);
+	printf("Removing room: %d\n", id);
 
 	int number = 0;
 	struct room *previous = malloc(sizeof(struct room));
 	if(previous == NULL) { printf("out of memory."); }
 	struct room *current = roomsRoot;
 	while(current != NULL) {
-		printf("%d\n", current->id);
 		if(current->id == id) {
-			printf("Found it");
 			if(number != 0 && previous != NULL) {
-				printf("It is NOT the root");
 				if(current->next != NULL) {
-					printf("It is not the end.");
 					previous->next = current->next;
 					current = NULL;
 					break;
@@ -178,9 +174,7 @@ void removeroom(int id) {
 					break;
 				}
 			} else { //this must be the root
-				printf("It is the root");
 				if(current->next != NULL) {
-					printf("It is not the end.");
 					roomsRoot = current->next;
 					current = NULL;
 					break;
@@ -194,7 +188,7 @@ void removeroom(int id) {
 		previous = current;
 		current = current->next;
 	}
-	//free(previous);
+	free(previous);
 	totalRooms--;
 }
 
@@ -264,7 +258,6 @@ int numUsersInRoom(int id) {
 		current = current->next;
 	}
 	
-	printf("%d", amount);
 	return amount;
 
 }
@@ -475,7 +468,6 @@ int main(int argc, char *argv[]){
         //else its some IO operation on some other socket 
 		current = usersRoot;
 		while(current != NULL) {
-			printf("%d\n", current->id);
 			if (FD_ISSET( current->socket, &readfds)) {   
 				char buffer[maxSize];
 				memset(buffer, 0, sizeof(buffer));
@@ -491,7 +483,6 @@ int main(int argc, char *argv[]){
 						break;
 					} else {
 						if(currentChar[0] == '\n' || i == maxSize -1) {
-							printf("%s\n", buffer);
 							//Commands
 							char refresh[8] = "/refresh"; //refresh rooms
 							char join[5] = "/join";
@@ -683,7 +674,6 @@ int main(int argc, char *argv[]){
 						
 
 								current->roomid = atoi(roomId);
-								printf("new id:%d\n", current->roomid);
 								//Indicate to the client that they have joined a room
 								char joined[9];
 								memset(joined, 0, sizeof(joined));
@@ -716,10 +706,10 @@ int main(int argc, char *argv[]){
 									break;
 								}
 
-								int lastRoomId = current->roomid; //This is changing because it is a pointer i think
+								int lastRoomId = current->roomid;
 
 								//Check to see if the room is empty. If so delete it.
-								if(numUsersInRoom(lastRoomId) < 1) { removeroom(lastRoomId); }
+								if(numUsersInRoom(lastRoomId) < 2) { removeroom(lastRoomId); }
 								current->roomid = 0;
 
 								//Indicate to the client that they have left the room
@@ -768,8 +758,6 @@ int main(int argc, char *argv[]){
 								//Put the user in the room that they created
 								current->roomid = addroom(roomName);
 							
-								printf("NEW ID:%d\n", current->roomid);
-
 								//Indicate to the client that they have joined a room
 								char joined[9];
 								memset(joined, 0, sizeof(joined));
