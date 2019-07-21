@@ -20,7 +20,6 @@ struct hostent *server;
 int maxX = 0;
 int maxY = 0;
 
-char input[maxSize+2] = {0};
 
 #define totalStoredMessages 500
 char *previousMessages[totalStoredMessages];
@@ -35,10 +34,30 @@ int inputRows = 2;
 int inputCursorPos = 0;
 int backCharacterPos = 0;
 
+#define maxRooms 100
+char *rooms[maxRooms];
+int totalRooms = 0;
+
+int viewRoomPosition = 1;
+int bottomRoomPosition = 1;
+
+int inRoom = 0;
+
 //press escape to switch modes
 int currentMode = 0;
 //0: input
 //1: view
+
+char input[maxSize] = {0};
+
+void writeServer(char *msg);
+
+void refreshRooms() {
+	writeServer("/refresh\n");
+	memset(previousMessages, 0, sizeof(previousMessages));
+	totalRooms = 0;
+
+}
 
 void closeApp() {
 
@@ -61,13 +80,34 @@ void addMessage(char *msg) {
 		strncpy(previousMessages[totalMessages], msg, maxSize);
 		totalMessages++;
 		bottomMessagePosition++;
-		//if(totalMessages-topMessagePosition > maxY-titleRows-inputRows) { topMessagePosition++; }
 	} else {
 		for(int i=1; i<sizeof(previousMessages)-1; i++) {
 			strncpy(previousMessages[i-1], previousMessages[i], maxSize);
 		}
 		strncpy(previousMessages[totalStoredMessages-1], msg, maxSize);
-		//if(totalMessages-topMessagePosition == maxY-titleRows-inputRows) { topMessagePosition++; }
+	}
+
+}
+
+void addRoom(char *room) {
+	
+	//Make sure the memory is not already allocated
+	if(rooms[totalRooms] == NULL) { rooms[totalRooms] = malloc(maxSize+1); }
+
+	//Make sure malloc worked
+	if(!rooms[totalRooms]) {
+		return;
+	}
+
+	if(totalMessages < maxRooms) {
+		strncpy(rooms[totalRooms], room, maxSize);
+		totalRooms++;
+		bottomRoomPosition++;
+	} else {
+		for(int i=1; i<sizeof(rooms)-1; i++) {
+			strncpy(rooms[i-1], rooms[i], maxSize);
+		}
+		strncpy(rooms[totalRooms-1], room, maxSize);
 	}
 
 }
@@ -81,26 +121,70 @@ void redrawScreen() {
 
 	//resizeterm(maxY, maxX);
 
-	//Draw messages
-	int p=maxY-2;
-	for(int i=bottomMessagePosition; i>0; i--) {
-		if(p <= 2) { break; }
-		if(previousMessages[i] != NULL) {
-			p = p - 1 - floor(strlen(previousMessages[i])/maxX);
-			if(viewMessagePosition == i) {
-				attron(COLOR_PAIR(1));
-				mvprintw(p, 0, "%s\n", previousMessages[i]);
-				attroff(COLOR_PAIR(1));
-			} else {
+	//Draw messages / rooms
+	int p=maxY-inputRows;
+	if(inRoom == 1) {
+		for(int i=bottomMessagePosition; i>0; i--) {
+			if(p <= titleRows) { break; }
+			if(previousMessages[i] != NULL) {
+				p = p - 1 - floor(strlen(previousMessages[i])/maxX);
+				if(viewMessagePosition == i) {
+					attron(COLOR_PAIR(1));
+					mvprintw(p, 0, "%s\n", previousMessages[i]);
+					attroff(COLOR_PAIR(1));
+				} else {
+					mvprintw(p, 0, "%s\n", previousMessages[i]);
+				}
+			}
+		}
+	} else {
+		//Draw messages
+		for(int i=bottomMessagePosition; i>-1; i--) {
+			if(p <= ceil((maxY-inputRows-titleRows)*(3.0/4) + titleRows)-1) { break; }
+			if(previousMessages[i] != NULL) {
+				p = p - 1 - floor(strlen(previousMessages[i])/maxX);
+				//Do not do any highlighting here because you cannot scroll messages when looking for rooms
 				mvprintw(p, 0, "%s\n", previousMessages[i]);
 			}
+		}
+
+		p = ceil((maxY-inputRows-titleRows)*(3.0/4) + titleRows)-1;
+	
+		p--;
+
+		//Draw separator
+		for(int i=0; i<maxX; i++) mvprintw(p, i, "-"); //Separator
+		mvprintw(p, maxX/2 - strlen("MESSAGES")/2, "MESSAGES");
+
+		//Draw rooms	
+		for(int i=bottomRoomPosition; i>-1; i--) {
+			if(p <= titleRows) { break; }
+			if(rooms[i] != NULL) {
+				p = p - 1 - floor(strlen(rooms[i])/maxX);
+				if(viewRoomPosition == i) {
+					attron(COLOR_PAIR(1));
+					mvprintw(p, 0, "%s\n", rooms[i]);
+					attroff(COLOR_PAIR(1));
+				} else {
+					mvprintw(p, 0, "%s\n", rooms[i]);
+				}
+			}
+		} 
+
+		//If there are no rooms say so
+		if(totalRooms == 0) {
+			p = ceil((maxY-inputRows-titleRows)*(3.0/4)/2 + titleRows)-1;
+			mvprintw(p, maxX/2 - strlen("No Rooms! /create [name] to make one")/2, "No Rooms! /create [name] to make one");
 		}
 	}
 
 	//Draw Title
 	mvprintw(0, maxX/2 - strlen("TALK")/2, "TALK"); //centered
 	for(int i=0; i<maxX; i++) mvprintw(1, i, "-"); //Separator
-	
+
+	if(inRoom == 0) { mvprintw(1, maxX/2 - strlen("ROOMS - /refresh to refresh")/2, "ROOMS - /refresh to refresh"); }
+	else { mvprintw(1, maxX/2 - strlen("MESSAGES")/2, "MESSAGES"); }
+
 	//Current mode
 	if(currentMode == 0) {
 		mvprintw(maxY-1, maxX - strlen("INSERT"), "INSERT");
@@ -150,10 +234,14 @@ void writeServer(char *msg) {
 
 void *readServer() {
 	char buffer[maxSize+1];
-	bzero(buffer, sizeof(buffer));
+	memset(buffer, 0, sizeof(buffer));
 	char current[1];
-	bzero(current, sizeof(current));
+	memset(current, 0, sizeof(current));
 	int n = 0;
+	int readingRooms = 0;
+	char roomsTag[7] = "<rooms>";
+	char joinedTag[8] = "<joined>";
+	char leftTag[6] = "<left>";
 	while(1) {
 		//Read message character by character
 		for(int i=0; i<maxSize; i++) {
@@ -170,17 +258,52 @@ void *readServer() {
 			} else {
 				if(current[0] == '\n' || i == maxSize-1) {
 					buffer[i+1] = '\0';
-					addMessage(buffer);
+					if(readingRooms == 1) {
+						if(strcmp(buffer, "") != 0) {
+							addRoom(buffer);
+						}
+					} else {
+						if(strcmp(buffer, "") != 0) {
+							addMessage(buffer);
+						}
+					}
 					redrawScreen();
 					break;
 				} else {
+					//Determine if still reading the rooms
+					if(strncmp(buffer, roomsTag, sizeof(roomsTag)-1) == 0) {
+						memset(buffer, 0, sizeof(buffer));
+						if(readingRooms == 1) {
+							readingRooms = 0;	
+						} else {
+							memset(rooms, 0, sizeof(rooms));
+							totalRooms = 0;
+							readingRooms = 1;
+						}
+					} else if(!readingRooms && strncmp(buffer, joinedTag, sizeof(joinedTag)-1) == 0) {
+						//The user has successfully joined the room
+						inRoom = 1;
+						memset(buffer, 0, sizeof(buffer));
+						memset(previousMessages, 0, sizeof(previousMessages));
+						totalMessages=0;
+						refreshRooms();
+						redrawScreen();
+					} else if(!readingRooms && strncmp(buffer, leftTag, sizeof(leftTag)-1) == 0) {
+						//The user has successfully left the room
+						inRoom = 0;
+						memset(buffer, 0, sizeof(buffer));
+						memset(previousMessages, 0, sizeof(previousMessages));
+						totalMessages=0;
+						refreshRooms();
+						redrawScreen();
+					}
 					buffer[i] = current[0];
 				}
-				bzero(current, sizeof(current));
+				memset(current, 0, sizeof(current));
 			}
 		}
-		bzero(buffer, sizeof(buffer));
-		bzero(current, sizeof(current));
+		memset(buffer, 0, sizeof(buffer));
+		memset(current, 0, sizeof(current));
 	}
 
 }
@@ -249,17 +372,21 @@ void *getInput() {
 						}
 						break;	
 					case 107: //k
-						if(viewMessagePosition-1 > 0) { //Up
-							//int size = 1 + floor(strlen(previousMessages[viewMessagePosition])/maxX);
+						if(inRoom == 1 && viewMessagePosition-1 > 0) { //Up ceil((maxY-inputRows-titleRows)*(3.0/4) + titleRows)-1
 							viewMessagePosition-=1;
-							if(viewMessagePosition <= bottomMessagePosition-maxY+4) { bottomMessagePosition-=1; }
+							if(viewMessagePosition <= bottomMessagePosition - maxY - 4) { bottomMessagePosition-=1; }
+						} else if(inRoom == 0 && viewRoomPosition-1 > -1) {
+							viewRoomPosition-=1;
+							if(viewRoomPosition <= bottomRoomPosition-ceil((maxY-inputRows-titleRows)*(3.0/4) + titleRows)-1) { bottomRoomPosition-=1; }
 						}
 						break;
 					case 106: //j
-						if(viewMessagePosition+1 < totalMessages) { //Down
-							//int size = 1 + floor(strlen(previousMessages[viewMessagePosition])/maxX);
+						if(inRoom == 1 && viewMessagePosition+1 < totalMessages) { //Down
 							viewMessagePosition+=1;
-							if(viewMessagePosition == bottomMessagePosition) { bottomMessagePosition+=1; }
+							if(viewMessagePosition >= bottomMessagePosition) { bottomMessagePosition+=1; }
+						} else if(inRoom == 0 && viewRoomPosition+1 < totalRooms) { 
+							viewRoomPosition+=1;
+							if(viewRoomPosition >= bottomRoomPosition) { bottomRoomPosition+=1; }
 						}
 						break;	
 				}
@@ -270,7 +397,7 @@ void *getInput() {
 		//input[strlen(input)+2] = '\0';
 
 		writeServer(input);
-		bzero(input, sizeof(input));
+		memset(input, 0, sizeof(input));
 		inputCursorPos = 0;
 		backCharacterPos = 0;
 	}
@@ -295,7 +422,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr,"ERROR, no such host\n");
 		exit(0);	
 	}
-    bzero((char *) &serv_addr, sizeof(serv_addr));
+    memset((char *) &serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
     bcopy((char *)server->h_addr, 
          (char *)&serv_addr.sin_addr.s_addr,
@@ -319,10 +446,13 @@ int main(int argc, char *argv[]) {
 	pthread_t writeThread;	
 	
 	pthread_create(&readThread, NULL, readServer, NULL);
+	refreshRooms();
 	pthread_create(&writeThread, NULL, getInput, NULL);
 
 	pthread_join(readThread, NULL);
 	pthread_join(writeThread, NULL);
+
+	redrawScreen();
 
 	endwin();
 }
