@@ -129,7 +129,6 @@ struct user *findUserByName(char* name) {
 	struct user *current = usersRoot;
 
 	while(current != NULL) {
-		if(strcmp(name, current->name) == 0) {
 			return current;
 		}	
 		current = current->next;
@@ -329,15 +328,10 @@ void writeToUser(struct user *user, char *msg) {
 
 	int n = 0;
 
-	printf("ID1.4: %d\n", user->roomid);
-
 	if((n = (write(user->socket, msg, strlen(msg)+2))) < 0) {
-		printf("ID1.45: %d\n", user->roomid);
 		printf("ERROR while writing to user: %s\n", inet_ntoa(user->cli_addr.sin_addr));
 		removeUser(user);	
 	}
-
-	printf("ID1.5: %d\n", user->roomid);
 
 }
 
