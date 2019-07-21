@@ -252,7 +252,7 @@ int numUsersInRoom(int id) {
 	//Search through all users and check for their roomid
 	struct user *current = usersRoot;
 	while(current != NULL) {
-		if(current->id == id) {
+		if(current->roomid == id) {
 			amount++;
 		}
 		current = current->next;
@@ -329,10 +329,15 @@ void writeToUser(struct user *user, char *msg) {
 
 	int n = 0;
 
+	printf("ID1.4: %d\n", user->roomid);
+
 	if((n = (write(user->socket, msg, strlen(msg)+2))) < 0) {
+		printf("ID1.45: %d\n", user->roomid);
 		printf("ERROR while writing to user: %s\n", inet_ntoa(user->cli_addr.sin_addr));
 		removeUser(user);	
 	}
+
+	printf("ID1.5: %d\n", user->roomid);
 
 }
 
@@ -402,7 +407,7 @@ int main(int argc, char *argv[]){
     serv_addr.sin_port = htons(portno);   
          
 	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
-		printf("ERROR while binding\n");
+		printf("ERROR while binding. Try different port?\n");
 		exit(0);
 	}
          
@@ -639,7 +644,7 @@ int main(int argc, char *argv[]){
 								while(currentRoom != NULL) {	
 									char roomString[maxSize];
 									memset(roomString, 0, sizeof(roomString));
-									snprintf(roomString, sizeof(roomString), "[room] \"%s\" id:%d users:%d", currentRoom->name, currentRoom->id, numUsersInRoom(currentRoom->id));
+									snprintf(roomString, sizeof(roomString), "[ROOM] \"%s\", id:%d, users:%d", currentRoom->name, currentRoom->id, numUsersInRoom(currentRoom->id));
 									writeToUser(current, roomString);
 									
 									currentRoom = currentRoom->next;	
@@ -706,12 +711,6 @@ int main(int argc, char *argv[]){
 									break;
 								}
 
-								int lastRoomId = current->roomid;
-
-								//Check to see if the room is empty. If so delete it.
-								if(numUsersInRoom(lastRoomId) < 2) { removeroom(lastRoomId); }
-								current->roomid = 0;
-
 								//Indicate to the client that they have left the room
 								char left[7];
 								memset(left, 0, sizeof(left));
@@ -731,7 +730,12 @@ int main(int argc, char *argv[]){
 								} else {
 									snprintf(message, sizeof(message)-2, "[SERVER]: %s(%d) left the room", inet_ntoa(current->cli_addr.sin_addr), current->id);
 								}
-								writeToAllInRoom(message, lastRoomId);
+								writeToAllInRoom(message, current->roomid);
+
+								//Check to see if the room is empty. If so delete it.
+								if(numUsersInRoom(current->roomid) < 2) { removeroom(current->roomid); }
+								current->roomid = 0;
+
 							} else if(strncmp(buffer, create, sizeof(create)) == 0) { //Create room
 								//Make sure the user in not in a room
 								if(current->roomid != 0) {
