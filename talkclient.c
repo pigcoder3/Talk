@@ -48,6 +48,8 @@ int currentMode = 0;
 //0: input
 //1: view
 
+int somethingBroke = 0;
+
 char input[maxSize] = {0};
 
 void writeServer(char *msg);
@@ -120,6 +122,9 @@ void redrawScreen() {
 	getmaxyx(stdscr, maxY, maxX);
 
 	//resizeterm(maxY, maxX);
+
+	if(somethingBroke == 1) { mvprintw(0,0,"e"); }
+
 
 	//Draw messages / rooms
 	int p=maxY-inputRows;
@@ -450,6 +455,7 @@ int main(int argc, char *argv[]) {
 	pthread_create(&writeThread, NULL, getInput, NULL);
 
 	pthread_join(readThread, NULL);
+	somethingBroke = 1;
 	pthread_join(writeThread, NULL);
 
 	redrawScreen();

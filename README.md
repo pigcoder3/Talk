@@ -105,6 +105,16 @@ usage: `/msgid [userid] [message]`
 
 NOTE: Do not use the user's name, but his/her id
 
+#### Users
+
+##### On Server
+usage: `/allusers`
+
+##### In Room
+usage: `/users`
+
+NOTE: This cannot be used in the lobby.
+
 #### Quit
 Description: Quits the application
 
