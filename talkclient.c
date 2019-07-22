@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h> 
 #include <pthread.h> //multithreading
 #include <sys/ioctl.h> //Window sizes
@@ -190,9 +191,14 @@ void redrawScreen() {
 	//Current mode
 	if(currentMode == 0) {
 		mvprintw(maxY-1, maxX - strlen("INSERT"), "INSERT");
-		mvprintw(0,0,"%s", currentRoomString);
+		if(inRoom == 1) { 
+			mvprintw(0,0,"%s", currentRoomString);
+		} else {
+			mvprintw(0,0,"%s:%d", inet_ntoa(serv_addr.sin_addr), portno);
+		}
 	} else if(currentMode == 1) {
 		mvprintw(maxY-1, maxX - strlen("VIEW"), "VIEW");
+		mvprintw(0,0,"Scroll: hjkl");
 	}
 
 	//Draw serparator
@@ -211,7 +217,6 @@ void redrawScreen() {
 
 	//Help
 	mvprintw(0, maxX-strlen("ESC: change mode"), "Change mode: ESC");
-	if(currentMode == 1) { mvprintw(0,0,"Scroll: hjkl"); }
 
 	//Move the cursor to the right place
 	move(maxY-1,inputCursorPos - backCharacterPos);
