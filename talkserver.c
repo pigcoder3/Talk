@@ -347,6 +347,8 @@ void writeToUser(struct user *user, char *msg) {
 	
 	int n = 0;
 
+	printf("%s\n", msg);
+
 	if((n = (write(user->socket, formatted, strlen(formatted)))) < 0) {
 		printf("ERROR while writing to user: %s\n", inet_ntoa(user->cli_addr.sin_addr));
 		removeUser(user);	
@@ -662,8 +664,17 @@ int main(int argc, char *argv[]){
 									break; 
 								}
 								strncpy(current->name, output, maxNameSize);
+
+								//Indicate to the client the new name
+								writeToUser(current, "<newName>");
 								char message[maxSize];
+								memset(message, 0, sizeof(message));
+								snprintf(message, sizeof(message), "%s(%d)", current->name, current->id);
+								writeToUser(current, message);
+								writeToUser(current, "<newName>");
+
 								//Put oldname or ip when necessary
+								memset(message, 0, sizeof(message));
 								if(strlen(oldname) > 0) { 
 									snprintf(message, sizeof(message), "[SERVER]: %s(%d) is now known as \"%s(%d)\"", oldname, current->id, current->name, current->id);
 								} else {

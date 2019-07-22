@@ -45,6 +45,7 @@ int bottomRoomPosition = 1;
 int inRoom = 0;
 
 char currentRoomString[maxSize];
+char currentName[maxSize]; 
 
 //press escape to switch modes
 int currentMode = 0;
@@ -187,17 +188,19 @@ void redrawScreen() {
 	if(inRoom == 0) { mvprintw(1, maxX/2 - strlen("ROOMS - /refresh to refresh")/2, "ROOMS - /refresh to refresh"); }
 	else { mvprintw(1, maxX/2 - strlen("MESSAGES")/2, "MESSAGES"); }
 
+	//Name
+	mvprintw(0, maxX - strlen(currentName), currentName);
 
 	//Current mode
 	if(currentMode == 0) {
-		mvprintw(maxY-1, maxX - strlen("INSERT"), "INSERT");
+		mvprintw(maxY-1, maxX - strlen("INSERT (ESC)"), "INSERT (ESC)");
 		if(inRoom == 1) { 
 			mvprintw(0,0,"%s", currentRoomString);
 		} else {
 			mvprintw(0,0,"%s:%d", inet_ntoa(serv_addr.sin_addr), portno);
 		}
 	} else if(currentMode == 1) {
-		mvprintw(maxY-1, maxX - strlen("VIEW"), "VIEW");
+		mvprintw(maxY-1, maxX - strlen("VIEW (ESC)"), "VIEW (ESC)");
 		mvprintw(0,0,"Scroll: hjkl");
 	}
 
@@ -207,16 +210,13 @@ void redrawScreen() {
 	//Below is the input area
 	p=0;
 	for(int i=backCharacterPos; i<strlen(input); i++) {
-		if(p>=maxX-strlen("INSERT")-1) break;
+		if(p>=maxX-strlen("INSERT (ESC)")-1) break;
 		if(i == 0 && strlen(input) > maxX) {
 			i=strlen(input) - maxX;
 		}
 		mvprintw(maxY-1, p, "%c", input[i]);
 		p++;
 	}
-
-	//Help
-	mvprintw(0, maxX-strlen("ESC: change mode"), "Change mode: ESC");
 
 	//Move the cursor to the right place
 	move(maxY-1,inputCursorPos - backCharacterPos);
@@ -248,8 +248,10 @@ void *readServer() {
 	int n = 0;
 	int readingRooms = 0;
 	int readingCurrentRoom = 0;
+	int readingName = 0;
 	char roomsTag[7] = "<rooms>";
 	char joinedTag[8] = "<joined>";
+	char newNameTag[9] = "<newName>";
 	char leftTag[6] = "<left>";
 	while(1) {
 		//Read message character by character
@@ -271,9 +273,13 @@ void *readServer() {
 						if(strcmp(buffer, "") != 0) {
 							addRoom(buffer);
 						}
-					} else if(readingCurrentRoom != 0) {
+					} else if(readingCurrentRoom == 1) {
 						if(strcmp(buffer, "") != 0) {
 							strncpy(currentRoomString, buffer, sizeof(currentRoomString));
+						}
+					} else if(readingName == 1) {
+						if(strcmp(buffer, "") != 0) {
+							strncpy(currentName, buffer, sizeof(currentName));
 						}
 					} else {
 						if(strcmp(buffer, "") != 0) {
@@ -284,7 +290,7 @@ void *readServer() {
 					break;
 				} else {
 					//Determine if still reading the rooms
-					if(readingCurrentRoom == 0 && strncmp(buffer, roomsTag, sizeof(roomsTag)-1) == 0) {
+					if(readingCurrentRoom == 0 && readingName == 0 && strncmp(buffer, roomsTag, sizeof(roomsTag)-1) == 0) {
 						memset(buffer, 0, sizeof(buffer));
 						if(readingRooms == 1) {
 							readingRooms = 0;	
@@ -293,7 +299,7 @@ void *readServer() {
 							totalRooms = 0;
 							readingRooms = 1;
 						}
-					} else if(readingRooms == 0 && strncmp(buffer, joinedTag, sizeof(joinedTag)-1) == 0) {
+					} else if(readingRooms == 0 && readingName == 0 && strncmp(buffer, joinedTag, sizeof(joinedTag)-1) == 0) {
 						//The user has successfully joined the room
 						inRoom = 1;
 						memset(previousMessages, 0, sizeof(previousMessages));
@@ -305,14 +311,22 @@ void *readServer() {
 							//memset(currentRoomString, 0, sizeof(currentRoomString));
 							readingCurrentRoom = 1;
 						}
-						refreshRooms();
+						redrawScreen();
+					} else if(readingRooms == 0 && readingCurrentRoom == 0 && strncmp(buffer, newNameTag, sizeof(newNameTag)-1) == 0) {
+						//The user has successfully changed their name
+						memset(buffer, 0, sizeof(buffer));
+						if(readingName == 1) {
+							readingName = 0;	
+						} else {
+							readingName = 1;
+						}
 						redrawScreen();
 					} else if(readingRooms == 0 && readingCurrentRoom == 0 && strncmp(buffer, leftTag, sizeof(leftTag)-1) == 0) {
 						//The user has successfully left the room
 						inRoom = 0;
 						memset(buffer, 0, sizeof(buffer));
 						memset(previousMessages, 0, sizeof(previousMessages));
-						currentRoomString[0] = 0;
+						memset(currentRoomString, 0, sizeof(currentRoomString));
 						totalMessages=0;
 						refreshRooms();
 						redrawScreen();
