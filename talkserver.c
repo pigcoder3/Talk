@@ -140,8 +140,6 @@ struct user *findUserByName(char* name) {
 		current = current->next;
 	}
 
-	free(current);
-
 	return 0;
 
 }
@@ -156,8 +154,6 @@ struct user *findUserById(int id) {
 		}
 		current = current->next;
 	}
-
-	free(current);
 
 	return 0;
 
@@ -241,8 +237,6 @@ struct room *findRoomByName(char* name) {
 		current = current->next;
 	}
 
-	free(current);
-
 	return 0;
 
 }
@@ -257,8 +251,6 @@ struct room *findRoomById(int id) {
 		}
 		current = current->next;
 	}
-
-	free(current);
 
 	return 0;
 
@@ -277,8 +269,6 @@ int numUsersInRoom(int id) {
 		current = current->next;
 	}
 
-	free(current);
-	
 	return amount;
 
 }
@@ -303,8 +293,6 @@ void disconnectUser(struct user *user) {
 		current = current->next;
 	}
 
-	free(current);
-
 	removeUser(user);
 
 }
@@ -327,8 +315,6 @@ void writeToAll(char *msg) {
 
 	}
 
-	free(current);
-
 }
 
 void writeToAllInRoom(char *msg, int roomId) {
@@ -340,7 +326,9 @@ void writeToAllInRoom(char *msg, int roomId) {
 	int n = 0;
 	struct user *current = usersRoot;
 
+
 	while(current != NULL) {
+		
 		if(current->roomid == roomId && (n = (write(current->socket, formatted, strlen(formatted)))) < 0) {
 			printf("ERROR while writing to user: %s(%d)\n", inet_ntoa(current->cli_addr.sin_addr), current->id);
 			removeUser(current);
@@ -719,21 +707,27 @@ int main(int argc, char *argv[]){
 								if(!room) { 
 									char message[maxSize];
 									memset(message, 0, sizeof(message));
-									snprintf(message, sizeof(message), "[SERVER]: The room with id '%s' does not exist!", roomId);
+									snprintf(message, sizeof(message), "[SERVER]: The room with id '%d' does not exist!", atoi(roomId));
 									writeToUser(current, message);
 									break;
 								} 
 						
-
 								current->roomid = atoi(roomId);
+								
 								//Indicate to the client that they have joined a room
+								char message[maxSize];
+								memset(message, 0, sizeof(message));
 								writeToUser(current, "<joined>");
+								snprintf(message, sizeof(message), "%s(%d)", findRoomById(current->roomid)->name, current->roomid);
+								writeToUser(current, message);
+								writeToUser(current, "<joined>");
+
+snprintf(message, sizeof(message), "[SERVER]: %s(%d) joined the room", current->name, current->id);
 
 								//Indicate to the user that they have joined a room
 								writeToUser(current, "[SERVER]: You joined a room.");
 
 								//Tell all users in that room that the user has left
-								char message[maxSize];
 								memset(message, 0, sizeof(message));
 								if(strlen(current->name) > 0) { 
 									snprintf(message, sizeof(message), "[SERVER]: %s(%d) joined the room", current->name, current->id);
@@ -797,13 +791,17 @@ int main(int argc, char *argv[]){
 								current->roomid = addroom(roomName);
 							
 								//Indicate to the client that they have joined a room
+								char message[maxSize];
+								memset(message, 0, sizeof(message));
+								writeToUser(current, "<joined>");
+								snprintf(message, sizeof(message), "%s(%d)", findRoomById(current->roomid)->name, current->roomid);
+								writeToUser(current, message);
 								writeToUser(current, "<joined>");
 
 								//Indicate to the user that they have joined a room
 								writeToUser(current, "[SERVER]: You joined a room.");
 						
 								//Tell all users in that room that the user has joined
-								char message[maxSize];
 								memset(message, 0, sizeof(message));
 								if(strlen(current->name) > 0) { 
 									snprintf(message, sizeof(message), "[SERVER]: %s(%d) joined the room", current->name, current->id);
@@ -813,6 +811,7 @@ int main(int argc, char *argv[]){
 								writeToAllInRoom(message, current->roomid);
 							} else { // no commands
 								//Put name or ip when necessary
+								memset(output, 0, sizeof(output));
 								if(strlen(current->name) > 0) { 	
 									snprintf(output, sizeof(output), "[%s(%d)]: %s", current->name, current->id, buffer);
 								} else {
