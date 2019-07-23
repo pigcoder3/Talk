@@ -347,8 +347,6 @@ void writeToUser(struct user *user, char *msg) {
 	
 	int n = 0;
 
-	printf("%s\n", msg);
-
 	if((n = (write(user->socket, formatted, strlen(formatted)))) < 0) {
 		printf("ERROR while writing to user: %s\n", inet_ntoa(user->cli_addr.sin_addr));
 		removeUser(user);	

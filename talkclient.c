@@ -52,6 +52,8 @@ int currentMode = 0;
 //0: input
 //1: view
 
+int resized = 0;
+
 int somethingBroke = 0;
 
 char input[maxSize] = {0};
@@ -119,10 +121,19 @@ void addRoom(char *room) {
 
 void redrawScreen() {
 
-	//Clear screen
+	endwin();
+	refresh();
+
 	clear();
 
-	getmaxyx(stdscr, maxY, maxX);
+    struct winsize w;
+    ioctl(0, TIOCGWINSZ, &w);
+    maxX = w.ws_col;
+    maxY = w.ws_row;
+
+	wresize(stdscr, maxY, maxX);
+
+	//getmaxyx(stdscr, maxY, maxX);
 
 	//Draw messages / rooms
 	int p=maxY-inputRows;
@@ -220,7 +231,7 @@ void redrawScreen() {
 
 	//Move the cursor to the right place
 	move(maxY-1,inputCursorPos - backCharacterPos);
-	
+
 	refresh();
 
 }
@@ -347,9 +358,10 @@ void *getInput() {
 	while(1) {
 		while(1) {
 			bool finished = false;
-			char c = getch();
+			int key = getch();
+			if(key == KEY_RESIZE) { redrawScreen(); continue; }
 			if(currentMode == 0) { //Insert mode
-				switch(c) {
+				switch(key) {
 					case 27: //escape (switch modes)
 						currentMode = 1;
 						redrawScreen();
@@ -373,22 +385,35 @@ void *getInput() {
 						break;
 				}
 
+				if(strlen(input) > 1) {
+					char resize[3] = "~Z";
+					char lastTwo[3];
+					lastTwo[0] = input[strlen(input)-2];
+					lastTwo[1] = input[strlen(input)-1];
+					lastTwo[2] = '\0';
+					if(strncmp(lastTwo, resize, 2) == 0) {
+						resized = 1;
+						input[strlen(input)-2] = '\0';
+						input[strlen(input)-1] = 0;
+					}
+				}
+
 				if(finished) { break; }
 				if (!finished && strlen(input) < sizeof(input)-2) {
 					if(inputCursorPos >= strlen(input)) {
-						input[strlen(input)] = c;
+						input[strlen(input)] = key;
 					} else {
 						for(int i=strlen(input)-1; i>inputCursorPos; i--) {
 							input[i+1] = input[i];
 						}
-						input[inputCursorPos] = c;
+						input[inputCursorPos] = key;
 					}
 					inputCursorPos++;
 					if(inputCursorPos == backCharacterPos+maxX-strlen("INSERT") - 1) { backCharacterPos++; }
 				}	
 				redrawScreen();
 			} else if(currentMode == 1) { //View
-				switch(c) {
+				switch(key) {
 					case 27: //escape (switch modes)
 						currentMode = 0;
 						redrawScreen();
@@ -470,6 +495,11 @@ int main(int argc, char *argv[]) {
 	initscr();
 	noecho();
 
+	struct sigaction sa;
+    memset(&sa, 0, sizeof(struct sigaction));
+    sa.sa_handler = redrawScreen;
+    sigaction(SIGWINCH, &sa, NULL);
+	
 	//create colors
 	start_color();
 
