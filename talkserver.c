@@ -540,7 +540,7 @@ int main(int argc, char *argv[]){
 								disconnectUser(current);
 							} else if(strncmp(buffer, users, sizeof(users)) == 0) { //Total users in room
 								//Make sure the user is in a room
-								if(current->roomid != 0) {
+								if(current->roomid == 0) {
 									writeToUser(current, "[SERVER]: You cannot use that command in the lobby.");
 									break;
 								}
