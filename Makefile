@@ -1,5 +1,5 @@
 CLIENTFLAGS= -o client -lncurses -pthread -lm
-SERVERFLAGS= -o server
+SERVERFLAGS= -o server -pthread
 
 all: talkclient.c talkserver.c
 	gcc talkclient.c $(CLIENTFLAGS) && gcc talkserver.c $(SERVERFLAGS)
