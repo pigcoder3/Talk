@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 #include <sys/time.h>
 
 struct user {
@@ -296,12 +297,11 @@ void writeToAll(char *msg) {
 	struct user *current = usersRoot;
 
 	while(current != NULL) {
-		if((n = (write(current->socket, formatted, strlen(formatted)+2))) < 0) {
+		if((n = (write(current->socket, formatted, strlen(formatted)))) < 0) {
 			printf("ERROR while writing to user: %s(%d)\n", inet_ntoa(current->cli_addr.sin_addr), current->id);
 			removeUser(current);
 		}
 		current = current->next;
-
 	}
 
 }
@@ -387,6 +387,20 @@ char *substring(char *input, int begin, int length) {
 
 }
 
+void *serverManagerInput() {
+
+	while(1) {
+		char input[maxSize];
+		scanf("%s", input);
+
+		char formatted[maxSize];
+		memset(formatted, 0, sizeof(formatted));
+		snprintf(formatted, sizeof(formatted), "[SERVER MANAGER]: %s", input);
+		printf("%s\n", formatted);
+		writeToAll(formatted);
+	}
+}
+
 int main(int argc, char *argv[]){
 	
 	//Check to make sure the port was given	
@@ -420,6 +434,10 @@ int main(int argc, char *argv[]){
 	} 
 		
 	printf("Server up and running\n");
+
+	pthread_t managerInputThread;
+
+	pthread_create(&managerInputThread, NULL, serverManagerInput, NULL);
 
 	while(1) {   
 
