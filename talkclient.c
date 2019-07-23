@@ -432,20 +432,20 @@ void *getInput() {
 						break;	
 					case 107: //k
 						if(inRoom == 1 && viewMessagePosition-1 > 0) { //Up ceil((maxY-inputRows-titleRows)*(3.0/4) + titleRows)-1
-							viewMessagePosition-=1;
-							if(viewMessagePosition <= bottomMessagePosition - maxY - 4) { bottomMessagePosition-=1; }
+							viewMessagePosition--;
+							if(viewMessagePosition <= bottomMessagePosition - maxY + titleRows + inputRows) { bottomMessagePosition-=1; }
 						} else if(inRoom == 0 && viewRoomPosition-1 > -1) {
-							viewRoomPosition-=1;
-							if(viewRoomPosition <= bottomRoomPosition-ceil((maxY-inputRows-titleRows)*(3.0/4) + titleRows)-1) { bottomRoomPosition-=1; }
+							viewRoomPosition--;
+							if(viewRoomPosition <= bottomRoomPosition - ceil((maxY-inputRows-titleRows)*(3.0/4)) + titleRows) { bottomRoomPosition-=1; }
 						}
 						break;
 					case 106: //j
 						if(inRoom == 1 && viewMessagePosition+1 < totalMessages) { //Down
-							viewMessagePosition+=1;
-							if(viewMessagePosition >= bottomMessagePosition) { bottomMessagePosition+=1; }
+							viewMessagePosition++;
+							if(viewMessagePosition >= bottomMessagePosition +1) { bottomMessagePosition+=1; }
 						} else if(inRoom == 0 && viewRoomPosition+1 < totalRooms) { 
-							viewRoomPosition+=1;
-							if(viewRoomPosition >= bottomRoomPosition) { bottomRoomPosition+=1; }
+							viewRoomPosition++;
+							if(viewRoomPosition >= bottomRoomPosition+1) { bottomRoomPosition+=1; }
 						}
 						break;	
 				}

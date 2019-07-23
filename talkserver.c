@@ -72,24 +72,18 @@ void removeUser(struct user *user) {
 				if(current->next != NULL) {
 					previous->next = current->next;
 					current = NULL;
-					free(current);
-					freedCurrent = 1;
 					break;
 				} else {
 					previous->next = NULL;
-					free(previous->next);
 					break;
 				}
 			} else { //This must be the root
 				if(current->next != NULL) {
 					usersRoot = current->next;
 					current = NULL;
-					free(current);
-					freedCurrent = 1;
 					break;
 				} else {
 					usersRoot = NULL;
-					free(usersRoot);
 					break;
 				}
 			}
@@ -98,7 +92,7 @@ void removeUser(struct user *user) {
 		previous = current;
 		current = current->next;
 	}
-	free(previous);
+	//free(previous);
 	close(user->socket);
 	usersConnected--;
 
@@ -172,24 +166,20 @@ void removeroom(int id) {
 				if(current->next != NULL) {
 					previous->next = current->next;
 					current = NULL;
-					free(current);
 					freedCurrent = 1;
 					break;
 				} else {
 					previous->next = NULL;
-					free(previous->next);
 					break;
 				}
 			} else { //this must be the root
 				if(current->next != NULL) {
 					roomsRoot = current->next;
 					current = NULL;
-					free(current);
 					freedCurrent = 1;
 					break;
 				} else {
 					roomsRoot = NULL;
-					free(roomsRoot);
 					break;
 				}
 			}
@@ -198,7 +188,7 @@ void removeroom(int id) {
 		previous = current;
 		current = current->next;
 	}
-	free(previous);
+	//free(previous);
 	totalRooms--;
 }
 
