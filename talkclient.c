@@ -13,6 +13,9 @@
 #include <math.h>
 #include <signal.h>
 
+int gottenVersion = 0;
+char version[20];
+
 #define maxSize 4000
 int sockfd, portno;
 struct sockaddr_in serv_addr;
@@ -52,10 +55,6 @@ int currentMode = 0;
 //0: input
 //1: view
 
-int resized = 0;
-
-int somethingBroke = 0;
-
 char input[maxSize] = {0};
 
 void writeServer(char *msg);
@@ -66,10 +65,11 @@ void refreshRooms() {
 	totalRooms = 0;
 }
 
-void closeApp() {
+void closeApp(char *reason) {
 
+	close(sockfd);
 	endwin();
-	
+	printf("%s\n", reason);
 	exit(0);
 }
 
@@ -239,15 +239,9 @@ void redrawScreen() {
 void writeServer(char *msg) {
 	int n = 0;
 	if((n = (write(sockfd, msg, strlen(msg)))) < 0) {
-		endwin();
-		printf("ERROR while writing message: %s\n", msg);
-		close(sockfd);
-		closeApp();	
+		closeApp("ERROR while writing message\n");
 	} else if(n == 0) {
-		endwin();
-		printf("Connection lost (Server shutdown or force disconnect\n");
-		close(sockfd);
-		closeApp();	
+		closeApp("Connection lost (Server shutdown or force disconnect\n");
 	}
 }
 
@@ -268,18 +262,24 @@ void *readServer() {
 		//Read message character by character
 		for(int i=0; i<maxSize; i++) {
 			if((n = read(sockfd, current, 1)) < 0) {
-				endwin();	
-				printf("ERROR while receiving message\n");
-				close(sockfd);
-				closeApp();	
+				closeApp("ERROR while receiving message\n");	
 			} else if (n == 0) {
-				endwin();
-				printf("Connection lost (Server shutdown or force disconnect)\n");
-				close(sockfd);
-				closeApp();
+				closeApp("Connection lost (Server shutdown or force disconnect)\n");
 			} else {
 				if(current[0] == '\n' || i == maxSize-1) {
 					buffer[i+1] = '\0';
+					//Check to make sure the server and client are the same version
+					if(!gottenVersion) {
+						if(strncmp(buffer, version, sizeof(version)) != 0) {
+							char versionError[maxSize];
+							memset(versionError, 0, sizeof(versionError));
+							snprintf(versionError, sizeof(versionError), "Versions do not match! Server: %s, Client: %s\n", buffer, version);
+							closeApp(versionError);
+						} else {
+							gottenVersion = 1;
+							memset(buffer, 0, sizeof(buffer)); //No need to print this to the user
+						}
+					}
 					if(readingRooms == 1) {
 						if(strcmp(buffer, "") != 0) {
 							addRoom(buffer);
@@ -392,7 +392,6 @@ void *getInput() {
 					lastTwo[1] = input[strlen(input)-1];
 					lastTwo[2] = '\0';
 					if(strncmp(lastTwo, resize, 2) == 0) {
-						resized = 1;
 						input[strlen(input)-2] = '\0';
 						input[strlen(input)-1] = 0;
 					}
@@ -465,21 +464,30 @@ void *getInput() {
 
 int main(int argc, char *argv[]) {
 
+	FILE *fp;
+
+	if((fp = fopen("VERSION", "r")) == NULL) {
+		printf("ERROR: No version file.\n");
+		exit(1);
+	}
+
+	fscanf(fp, "%[^\n]", version);
+
     if (argc < 3) {
     	fprintf(stderr,"usage %s hostname port\n", argv[0]);
-		exit(0);	
+		exit(1);	
 	}
     portno = atoi(argv[2]);
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
 		printf("ERROR opening socket\n");
-		exit(0);	
+		exit(1);	
 	}
 
     server = gethostbyname(argv[1]);
     if (server == NULL) {
         fprintf(stderr,"ERROR, no such host\n");
-		exit(0);	
+		exit(1);	
 	}
     memset((char *) &serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
@@ -514,7 +522,6 @@ int main(int argc, char *argv[]) {
 	pthread_create(&writeThread, NULL, getInput, NULL);
 
 	pthread_join(readThread, NULL);
-	somethingBroke = 1;
 	pthread_join(writeThread, NULL);
 
 	redrawScreen();

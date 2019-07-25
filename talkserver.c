@@ -28,6 +28,8 @@ struct room {
 
 };
 
+char version[20];
+
 #define maxSize 4000
 
 int sockfd, new_socket, portno, n;
@@ -117,7 +119,9 @@ void addUser(struct sockaddr_in cli_addr, int socket) {
 	memset(user->name, 0, sizeof(user->name));
 
 	printf("Client Connected: %s, ID: %d, Socket Descriptor: %d\n", inet_ntoa(user->cli_addr.sin_addr), user->id, socket);
+	writeToUser(user, version);
 	writeToUser(user, "[SERVER]: Welcome! Type '/help' for help. No other users can see your chat while in the lobby (except private messages).");
+
 
 	usersConnected++;
 
@@ -403,16 +407,27 @@ void *serverManagerInput() {
 
 int main(int argc, char *argv[]){
 	
+	FILE *fp;
+
+	if( (fp = fopen("VERSION", "r")) == NULL) {
+		printf("ERROR: No version file.\n");
+		exit(1);
+	}
+
+	fscanf(fp,"%[^\n]", version);
+
 	//Check to make sure the port was given	
 	if (argc < 2) {
-        fprintf(stderr,"ERROR, no port provided\n");
+        printf("ERROR: No port provided.\n");
         exit(1);
    	}
 
 	//Open the socket
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) 
-		printf("ERROR opening socket\n");
+    if (sockfd < 0) {
+		printf("ERROR opening socket.\n");
+		exit(1);
+	}	
 
 	//printf("%d", sockfd);
 
@@ -503,10 +518,7 @@ int main(int argc, char *argv[]){
               	memset(currentChar, 0, sizeof(currentChar));
 				for(int i=0; i<sizeof(buffer)-1; i++) {
 					//read message
-					if((n = read(current->socket, currentChar, 1)) == -1) {
-						printf("ERROR while recieving message\n");
-						disconnectUser(current);	
-					} else if(n == 0) {	//User disconnected
+					if((n = read(current->socket, currentChar, 1)) < 1) {
 						disconnectUser(current);
 						break;
 					} else {
