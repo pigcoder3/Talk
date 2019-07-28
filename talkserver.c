@@ -329,8 +329,6 @@ void writeToAllInRoom(char *msg, int roomId) {
 		current = current->next;
 	}
 
-	free(current);
-
 }
 
 void writeToUser(struct user *user, char *msg) {
@@ -466,7 +464,6 @@ int main(int argc, char *argv[]){
         int max_sd = sockfd;
    		struct user *current = usersRoot;
 
-
 		while(current != NULL) {
 
 			FD_SET(current->socket, &readfds);				
@@ -476,8 +473,6 @@ int main(int argc, char *argv[]){
 			current = current->next;
 
 		}
-
-		free(current);
 
         //wait for an activity on one of the sockets , timeout is NULL ,  
         //so wait indefinitely  
@@ -655,7 +650,6 @@ int main(int argc, char *argv[]){
 								//Send the message
 								writeToUser(receiver, formattedMessage);
 								writeToUser(current, formattedMessage);
-								free(receiver);
 							} else if(strncmp(buffer, name, sizeof(name)) == 0) { //name change
 								char oldname[maxNameSize];
 								memset(oldname, 0, sizeof(oldname));
