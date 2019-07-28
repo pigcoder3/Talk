@@ -544,7 +544,7 @@ int main(int argc, char *argv[]){
 								"[HELP] /leave - Leave the room. When no users are left in a room, it is destroyed.\n"
 								"[HELP] /create [roomname] - Create a room. Two rooms cannot have the same name.\n"
 								"[HELP] /msg [username] [msg] - Send a private message. Specify recipient by name. The receiver must have a name (ip address not displayed). Private messages are not logged on the server.\n"
-								"[HELP] /msgid - Send a private message, but find specify recipient by id. Private messages are not logged.\n"
+								"[HELP] /msgid [userid] [msg] - Send a private message, but find specify recipient by id. Private messages are not logged.\n"
 								"[HELP] /allusers - Get the number of users on the server.\n"
 								"[HELP] /users - Get the number of users in the room.\n"
 								"[HELP] /quit - Quit the app\n"
