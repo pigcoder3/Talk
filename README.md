@@ -1,6 +1,6 @@
 # TALK
 
-Talk is a client/server based chat system. There are no dedicated servers, so you (or someone else) will have to run one.
+Talk is a client/server text based chat system. There are no dedicated servers, so you (or someone else) will have to run one.
 
 ## Server
 
@@ -68,7 +68,6 @@ usage: `/name [newname]`
 
 NOTE: `newname` must be 20 characters or less (It will be truncated if not)
 
-<<<<<<< HEAD
 #### Join
 Description: joins a room
 
@@ -104,6 +103,16 @@ NOTE: The receiver must have a name (not the ip address displayed).
 usage: `/msgid [userid] [message]`
 
 NOTE: Do not use the user's name, but his/her id
+
+#### Users
+
+##### On Server
+usage: `/allusers`
+
+##### In Room
+usage: `/users`
+
+NOTE: This cannot be used in the lobby.
 
 #### Quit
 Description: Quits the application

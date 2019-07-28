@@ -28,6 +28,8 @@ struct room {
 
 };
 
+char version[20];
+
 #define maxSize 4000
 
 int sockfd, new_socket, portno, n;
@@ -63,9 +65,9 @@ void removeUser(struct user *user) {
 
 	int roomid = user->roomid;
 
+	int freedCurrent = 0;
 	int number = 0;
-	struct user *previous = malloc(sizeof(user));
-	if(previous == NULL) { printf("Out of memory."); }
+	struct user *previous = malloc(sizeof(previous));
 	struct user *current = usersRoot;
 	while(current != NULL) {
 		if(current->socket == user->socket) {
@@ -93,12 +95,12 @@ void removeUser(struct user *user) {
 		previous = current;
 		current = current->next;
 	}
-	free(previous);
+	//free(previous);
 	close(user->socket);
 	usersConnected--;
 
 	//Check to see if the room is empty. If so delete it.
-	if(numUsersInRoom(roomid) == 0) { removeroom(roomid); }
+	if(roomid != 0 && numUsersInRoom(roomid) == 0) { removeroom(roomid); }
 }
 
 void addUser(struct sockaddr_in cli_addr, int socket) {
@@ -116,11 +118,12 @@ void addUser(struct sockaddr_in cli_addr, int socket) {
 	
 	memset(user->name, 0, sizeof(user->name));
 
-	char welcome[maxSize] = "[SERVER]: Welcome! Type '/help' for help. No other users can see your chat while in the lobby (except private messages).";
 	printf("Client Connected: %s, ID: %d, Socket Descriptor: %d\n", inet_ntoa(user->cli_addr.sin_addr), user->id, socket);
-	writeToUser(user, welcome);
+	writeToUser(user, version);
+	writeToUser(user, "[SERVER]: Welcome! Type '/help' for help. No other users can see your chat while in the lobby (except private messages).");
 
-	usersConnected = usersConnected + 1;
+
+	usersConnected++;
 
 }
 
@@ -129,7 +132,7 @@ struct user *findUserByName(char* name) {
 	struct user *current = usersRoot;
 
 	while(current != NULL) {
-		if(strcmp(name, current->name) == 0) {
+		if(strncmp(current->name, name, sizeof(20)) == 0) {
 			return current;
 		}	
 		current = current->next;
@@ -158,9 +161,9 @@ void removeroom(int id) {
 
 	printf("Removing room: %d\n", id);
 
+	int freedCurrent = 0;
 	int number = 0;
 	struct room *previous = malloc(sizeof(struct room));
-	if(previous == NULL) { printf("out of memory."); }
 	struct room *current = roomsRoot;
 	while(current != NULL) {
 		if(current->id == id) {
@@ -168,6 +171,7 @@ void removeroom(int id) {
 				if(current->next != NULL) {
 					previous->next = current->next;
 					current = NULL;
+					freedCurrent = 1;
 					break;
 				} else {
 					previous->next = NULL;
@@ -177,6 +181,7 @@ void removeroom(int id) {
 				if(current->next != NULL) {
 					roomsRoot = current->next;
 					current = NULL;
+					freedCurrent = 1;
 					break;
 				} else {
 					roomsRoot = NULL;
@@ -188,7 +193,7 @@ void removeroom(int id) {
 		previous = current;
 		current = current->next;
 	}
-	free(previous);
+	//free(previous);
 	totalRooms--;
 }
 
@@ -257,7 +262,7 @@ int numUsersInRoom(int id) {
 		}
 		current = current->next;
 	}
-	
+
 	return amount;
 
 }
@@ -288,56 +293,58 @@ void disconnectUser(struct user *user) {
 
 void writeToAll(char *msg) {
 
-	msg[strlen(msg)+1] = '\n';
-	msg[strlen(msg)+2] = '\0';
+	char formatted[maxSize];
+	memset(formatted, 0, sizeof(formatted));
+	snprintf(formatted, sizeof(formatted), "%s\n", msg);
 
 	int n = 0;
 	struct user *current = usersRoot;
 
 	while(current != NULL) {
-		if((n = (write(current->socket, msg, strlen(msg)+2))) < 0) {
+		if((n = (write(current->socket, formatted, strlen(formatted)))) < 0) {
 			printf("ERROR while writing to user: %s(%d)\n", inet_ntoa(current->cli_addr.sin_addr), current->id);
 			removeUser(current);
 		}
 		current = current->next;
-
 	}
 
 }
 
 void writeToAllInRoom(char *msg, int roomId) {
 
-	msg[strlen(msg)+1] = '\n';
-	msg[strlen(msg)+2] = '\0';
-
+	char formatted[maxSize];
+	memset(formatted, 0, sizeof(formatted));
+	snprintf(formatted, sizeof(formatted), "%s\n", msg);
+	
 	int n = 0;
 	struct user *current = usersRoot;
 
+
 	while(current != NULL) {
-		if(current->roomid == roomId && (n = (write(current->socket, msg, strlen(msg)+2))) < 0) {
+		
+		if(current->roomid == roomId && (n = (write(current->socket, formatted, strlen(formatted)))) < 0) {
 			printf("ERROR while writing to user: %s(%d)\n", inet_ntoa(current->cli_addr.sin_addr), current->id);
 			removeUser(current);
 		}
 		current = current->next;
 	}
+
+	free(current);
+
 }
 
 void writeToUser(struct user *user, char *msg) {
 
-	msg[strlen(msg)+1] = '\n';
-	msg[strlen(msg)+2] = '\0';
-
+	char formatted[maxSize];
+	memset(formatted, 0, sizeof(formatted));
+	snprintf(formatted, sizeof(formatted), "%s\n", msg);
+	
 	int n = 0;
 
-	printf("ID1.4: %d\n", user->roomid);
-
-	if((n = (write(user->socket, msg, strlen(msg)+2))) < 0) {
-		printf("ID1.45: %d\n", user->roomid);
+	if((n = (write(user->socket, formatted, strlen(formatted)))) < 0) {
 		printf("ERROR while writing to user: %s\n", inet_ntoa(user->cli_addr.sin_addr));
 		removeUser(user);	
 	}
-
-	printf("ID1.5: %d\n", user->roomid);
 
 }
 
@@ -384,18 +391,43 @@ char *substring(char *input, int begin, int length) {
 
 }
 
+void *serverManagerInput() {
+
+	while(1) {
+		char input[maxSize];
+		scanf("%s", input);
+
+		char formatted[maxSize];
+		memset(formatted, 0, sizeof(formatted));
+		snprintf(formatted, sizeof(formatted), "[SERVER MANAGER]: %s", input);
+		printf("%s\n", formatted);
+		writeToAll(formatted);
+	}
+}
+
 int main(int argc, char *argv[]){
 	
+	FILE *fp;
+
+	if( (fp = fopen("VERSION", "r")) == NULL) {
+		printf("ERROR: No version file.\n");
+		exit(1);
+	}
+
+	fscanf(fp,"%[^\n]", version);
+
 	//Check to make sure the port was given	
 	if (argc < 2) {
-        fprintf(stderr,"ERROR, no port provided\n");
+        printf("ERROR: No port provided.\n");
         exit(1);
    	}
 
 	//Open the socket
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) 
-		printf("ERROR opening socket\n");
+    if (sockfd < 0) {
+		printf("ERROR opening socket.\n");
+		exit(1);
+	}	
 
 	//printf("%d", sockfd);
 
@@ -417,6 +449,10 @@ int main(int argc, char *argv[]){
 	} 
 		
 	printf("Server up and running\n");
+
+	pthread_t managerInputThread;
+
+	pthread_create(&managerInputThread, NULL, serverManagerInput, NULL);
 
 	while(1) {   
 
@@ -440,6 +476,8 @@ int main(int argc, char *argv[]){
 			current = current->next;
 
 		}
+
+		free(current);
 
         //wait for an activity on one of the sockets , timeout is NULL ,  
         //so wait indefinitely  
@@ -480,10 +518,7 @@ int main(int argc, char *argv[]){
               	memset(currentChar, 0, sizeof(currentChar));
 				for(int i=0; i<sizeof(buffer)-1; i++) {
 					//read message
-					if((n = read(current->socket, currentChar, 1)) == -1) {
-						printf("ERROR while recieving message\n");
-						disconnectUser(current);	
-					} else if(n == 0) {	//User disconnected
+					if((n = read(current->socket, currentChar, 1)) < 1) {
 						disconnectUser(current);
 						break;
 					} else {
@@ -493,6 +528,8 @@ int main(int argc, char *argv[]){
 							char join[5] = "/join";
 							char leave[6] = "/leave";
 							char create[7] = "/create";
+							char allusers[9] = "/allusers";
+							char users[6] = "/users";
 							char help[5] = "/help";
 							char quit[5] = "/quit";
 							char name[5] = "/name";
@@ -505,18 +542,40 @@ int main(int argc, char *argv[]){
 							memset(output, 0, sizeof(output));
 							
 							if(strncmp(buffer, help, sizeof(help)) == 0) {
-								char helpOutput[maxSize*7] = "[HELP] /help - Show help menu\n"
+								char *helpOutput = malloc(11*maxSize);
+								strncpy(helpOutput, "[HELP] /help - Show help menu\n"
 								"[HELP] /name [newname] - change your name. New name can only be 20 characters.\n"
 								"[HELP] /join [roomid] - Join a room, You must use the roomid and not the name.\n"
 								"[HELP] /leave - Leave the room. When no users are left in a room, it is destroyed.\n"
 								"[HELP] /create [roomname] - Create a room. Two rooms cannot have the same name.\n"
 								"[HELP] /msg [username] [msg] - Send a private message. Specify recipient by name. The receiver must have a name (ip address not displayed). Private messages are not logged on the server.\n"
 								"[HELP] /msgid - Send a private message, but find specify recipient by id. Private messages are not logged.\n"
+								"[HELP] /allusers - Get the number of users on the server.\n"
+								"[HELP] /users - Get the number of users in the room.\n"
 								"[HELP] /quit - Quit the app\n"
-								"For anything else, read the README that came with your copy";
+								"For anything else, read the README that came with your copy", 11*maxSize);
 								writeToUser(current, helpOutput);
+								free(helpOutput);
 							} else if(strncmp(buffer, quit, sizeof(quit)) == 0) { //Quit
 								disconnectUser(current);
+							} else if(strncmp(buffer, users, sizeof(users)) == 0) { //Total users in room
+								//Make sure the user is in a room
+								if(current->roomid == 0) {
+									writeToUser(current, "[SERVER]: You cannot use that command in the lobby.");
+									break;
+								}
+
+								char message[maxSize];
+								memset(message, 0, sizeof(message));
+								snprintf(message, sizeof(message), "[SERVER]: There are %d users in this room.", numUsersInRoom(current->roomid));
+								writeToUser(current, message);
+							} else if(strncmp(buffer, allusers, sizeof(allusers)) == 0) { //Total users on server
+
+								char message[maxSize];
+								memset(message, 0, sizeof(message));
+								snprintf(message, sizeof(message), "[SERVER]: There are %d users on the server.", usersConnected);
+								writeToUser(current, message);
+
 							} else if(strncmp(buffer, msg, sizeof(msg)) == 0 || strncmp(buffer, msgid, sizeof(msgid)-1) == 0) { // private message
 								int idtype = 0;
 
@@ -562,9 +621,9 @@ int main(int argc, char *argv[]){
 									char noUser[100+maxNameSize];
 									memset(noUser, 0, sizeof(noUser));
 									if(idtype == 0) {
-										snprintf(noUser, sizeof(noUser), "[SERVER] The user '%s' does not exist!\n", user);
+										snprintf(noUser, sizeof(noUser), "[SERVER]: The user '%s' does not exist!\n", user);
 									} else if(idtype == 1) {
-										snprintf(noUser, sizeof(noUser), "[SERVER] The user with id, '%s', does not exist!\n", user);
+										snprintf(noUser, sizeof(noUser), "[SERVER]: The user with id, '%s', does not exist!\n", user);
 									}
 									writeToUser(current, noUser); 
 									break; 
@@ -572,10 +631,7 @@ int main(int argc, char *argv[]){
 
 								//If the user tries to message theirself
 								if(receiver->id == current->id) { 
-									char messageSelf[100];
-									memset(messageSelf, 0, sizeof(messageSelf));
-									snprintf(messageSelf, sizeof(messageSelf), "[SERVER] You are attempting to message yourself");
-									writeToUser(current, messageSelf);
+									writeToUser(current, "[SERVER]: You are attempting to message yourself");
 									break; 
 								}
 	
@@ -599,6 +655,7 @@ int main(int argc, char *argv[]){
 								//Send the message
 								writeToUser(receiver, formattedMessage);
 								writeToUser(current, formattedMessage);
+								free(receiver);
 							} else if(strncmp(buffer, name, sizeof(name)) == 0) { //name change
 								char oldname[maxNameSize];
 								memset(oldname, 0, sizeof(oldname));
@@ -620,17 +677,26 @@ int main(int argc, char *argv[]){
 								if(findUserByName(output)) { 
 									char nameUsed[100+maxNameSize];
 									memset(nameUsed, 0, sizeof(nameUsed));
-									snprintf(nameUsed, sizeof(nameUsed), "[SERVER] The name '%s' is already taken!", output);
+									snprintf(nameUsed, sizeof(nameUsed), "[SERVER]: The name '%s' is already taken!", output);
 									writeToUser(current, nameUsed);
 									break; 
 								}
 								strncpy(current->name, output, maxNameSize);
+
+								//Indicate to the client the new name
+								writeToUser(current, "<newName>");
 								char message[maxSize];
+								memset(message, 0, sizeof(message));
+								snprintf(message, sizeof(message), "%s(%d)", current->name, current->id);
+								writeToUser(current, message);
+								writeToUser(current, "<newName>");
+
 								//Put oldname or ip when necessary
+								memset(message, 0, sizeof(message));
 								if(strlen(oldname) > 0) { 
-									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as \"%s(%d)\"", oldname, current->id, current->name, current->id);
+									snprintf(message, sizeof(message), "[SERVER]: %s(%d) is now known as \"%s(%d)\"", oldname, current->id, current->name, current->id);
 								} else {
-									snprintf(message, sizeof(message), "[SERVER] %s(%d) is now known as \"%s(%d)\"", inet_ntoa(current->cli_addr.sin_addr), current->id, current->name, current->id);
+									snprintf(message, sizeof(message), "[SERVER]: %s(%d) is now known as \"%s(%d)\"", inet_ntoa(current->cli_addr.sin_addr), current->id, current->name, current->id);
 								}
 								writeToAll(message);
 								printf("%s\n", message);
@@ -657,10 +723,7 @@ int main(int argc, char *argv[]){
 
 								//Make sure the user in not in a room
 								if(current->roomid != 0) {
-									char message[maxSize];
-									memset(message, 0, sizeof(message));
-									snprintf(message, sizeof(message), "[SERVER] You cannot use that command while in a room.");
-									writeToUser(current, message);
+									writeToUser(current, "[SERVER]: You cannot use that command while in a room.");
 									break;
 								}
 
@@ -672,31 +735,32 @@ int main(int argc, char *argv[]){
 								if(!room) { 
 									char message[maxSize];
 									memset(message, 0, sizeof(message));
-									snprintf(message, sizeof(message), "[SERVER] The room with id, %s, does not exist!", roomId);
+									snprintf(message, sizeof(message), "[SERVER]: The room with id '%d' does not exist!", atoi(roomId));
 									writeToUser(current, message);
 									break;
 								} 
 						
-
 								current->roomid = atoi(roomId);
+								
 								//Indicate to the client that they have joined a room
-								char joined[9];
-								memset(joined, 0, sizeof(joined));
-								snprintf(joined, sizeof(joined), "<joined>");
-								writeToUser(current, joined);
-
-								//Indicate to the user that they have joined a room
 								char message[maxSize];
 								memset(message, 0, sizeof(message));
-								snprintf(message, sizeof(message), "[SERVER] You joined a room.");
+								writeToUser(current, "<joined>");
+								snprintf(message, sizeof(message), "%s(%d)", findRoomById(current->roomid)->name, current->roomid);
 								writeToUser(current, message);
+								writeToUser(current, "<joined>");
+
+snprintf(message, sizeof(message), "[SERVER]: %s(%d) joined the room", current->name, current->id);
+
+								//Indicate to the user that they have joined a room
+								writeToUser(current, "[SERVER]: You joined a room.");
 
 								//Tell all users in that room that the user has left
 								memset(message, 0, sizeof(message));
 								if(strlen(current->name) > 0) { 
-									snprintf(message, sizeof(message)-2, "[SERVER]: %s(%d) joined the room", current->name, current->id);
+									snprintf(message, sizeof(message), "[SERVER]: %s(%d) joined the room", current->name, current->id);
 								} else {
-									snprintf(message, sizeof(message)-2, "[SERVER]: %s(%d) joined the room", inet_ntoa(current->cli_addr.sin_addr), current->id);
+									snprintf(message, sizeof(message), "[SERVER]: %s(%d) joined the room", inet_ntoa(current->cli_addr.sin_addr), current->id);
 								}
 								writeToAllInRoom(message, current->roomid);
 
@@ -704,45 +768,37 @@ int main(int argc, char *argv[]){
 
 								//Make sure the user in not in the lobby
 								if(current->roomid == 0) {
-									char message[maxSize];
-									memset(message, 0, sizeof(message));
-									snprintf(message, sizeof(message), "[SERVER] You cannot use that command while in the lobby.");
-									writeToUser(current, message);
+									writeToUser(current, "[SERVER]: You cannot use that command while in the lobby.");
 									break;
 								}
 
 								//Indicate to the client that they have left the room
-								char left[7];
-								memset(left, 0, sizeof(left));
-								snprintf(left, sizeof(left), "<left>");
-								writeToUser(current, left);
+								writeToUser(current, "<left>");
 
 								//indicate to the user that they have left the room
-								char message[maxSize];
-								memset(message, 0, sizeof(message));
-								snprintf(message, sizeof(message), "[SERVER] you left the room.");
-								writeToUser(current, message);
+								writeToUser(current, "[SERVER]: You left the room.");
+
+								int lastRoomId = current->roomid;
+
+								current->roomid = 0;
 
 								//tell all users in that room that the user has left
+								char message[maxSize];
 								memset(message, 0, sizeof(message));
 								if(strlen(current->name) > 0) { 
-									snprintf(message, sizeof(message)-2, "[SERVER]: %s(%d) left the room", current->name, current->id);
+									snprintf(message, sizeof(message), "[SERVER]: %s(%d) left the room", current->name, lastRoomId);
 								} else {
-									snprintf(message, sizeof(message)-2, "[SERVER]: %s(%d) left the room", inet_ntoa(current->cli_addr.sin_addr), current->id);
+									snprintf(message, sizeof(message), "[SERVER]: %s(%d) left the room", inet_ntoa(current->cli_addr.sin_addr), lastRoomId);
 								}
-								writeToAllInRoom(message, current->roomid);
+								writeToAllInRoom(message, lastRoomId);
 
 								//Check to see if the room is empty. If so delete it.
-								if(numUsersInRoom(current->roomid) < 2) { removeroom(current->roomid); }
-								current->roomid = 0;
+								if(numUsersInRoom(lastRoomId) < 1) { removeroom(lastRoomId); }
 
 							} else if(strncmp(buffer, create, sizeof(create)) == 0) { //Create room
 								//Make sure the user in not in a room
 								if(current->roomid != 0) {
-									char message[maxSize];
-									memset(message, 0, sizeof(message));
-									snprintf(message, sizeof(message), "[SERVER] You cannot use that command while in a room.");
-									writeToUser(current, message);
+									writeToUser(current, "[SERVER]: You cannot use that command while in a room.");
 									break;
 								}
 								
@@ -754,7 +810,7 @@ int main(int argc, char *argv[]){
 								if(room) { 
 									char message[maxSize];
 									memset(message, 0, sizeof(message));
-									snprintf(message, sizeof(message), "[SERVER] There is already a room with the name '%s'!", roomName);
+									snprintf(message, sizeof(message), "[SERVER]: There is already a room with the name '%s'!", roomName);
 									writeToUser(current, message);
 									break;
 								} 
@@ -763,31 +819,31 @@ int main(int argc, char *argv[]){
 								current->roomid = addroom(roomName);
 							
 								//Indicate to the client that they have joined a room
-								char joined[9];
-								memset(joined, 0, sizeof(joined));
-								snprintf(joined, sizeof(joined), "<joined>");
-								writeToUser(current, joined);
-
-								//Indicate to the user that they have joined a room
 								char message[maxSize];
 								memset(message, 0, sizeof(message));
-								snprintf(message, sizeof(message), "[SERVER] You joined a room.");
+								writeToUser(current, "<joined>");
+								snprintf(message, sizeof(message), "%s(%d)", findRoomById(current->roomid)->name, current->roomid);
 								writeToUser(current, message);
+								writeToUser(current, "<joined>");
+
+								//Indicate to the user that they have joined a room
+								writeToUser(current, "[SERVER]: You joined a room.");
 						
 								//Tell all users in that room that the user has joined
 								memset(message, 0, sizeof(message));
 								if(strlen(current->name) > 0) { 
-									snprintf(message, sizeof(message)-2, "[SERVER]: %s(%d) joined the room", current->name, current->id);
+									snprintf(message, sizeof(message), "[SERVER]: %s(%d) joined the room", current->name, current->id);
 								} else {
-									snprintf(message, sizeof(message)-2, "[SERVER]: %s(%d) joined the room", inet_ntoa(current->cli_addr.sin_addr), current->id);
+									snprintf(message, sizeof(message), "[SERVER]: %s(%d) joined the room", inet_ntoa(current->cli_addr.sin_addr), current->id);
 								}
 								writeToAllInRoom(message, current->roomid);
 							} else { // no commands
 								//Put name or ip when necessary
+								memset(output, 0, sizeof(output));
 								if(strlen(current->name) > 0) { 	
-									snprintf(output, sizeof(output)-1, "[%s(%d)]: %s", current->name, current->id, buffer);
+									snprintf(output, sizeof(output), "[%s(%d)]: %s", current->name, current->id, buffer);
 								} else {
-									snprintf(output, sizeof(output)-1, "[%s(%d)]: %s", inet_ntoa(current->cli_addr.sin_addr), current->id, buffer);
+									snprintf(output, sizeof(output), "[%s(%d)]: %s", inet_ntoa(current->cli_addr.sin_addr), current->id, buffer);
 								}
 								printf("%s\n", output);
 								if(current->roomid == 0) {
